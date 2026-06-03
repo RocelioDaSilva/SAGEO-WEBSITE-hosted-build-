@@ -1,0 +1,18 @@
+{
+  "short_name": "SAGEO 2026",
+  "name": "SAGEO 2026 - Semana de Geociências",
+  "description": "Portal Oficial de Inscrições e Acompanhamento de Atividades SAGEO 2026.",
+  "icons": [
+    {
+      "src": "/sageo_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#020617",
+  "theme_color": "#dfac34",
+  "display": "standalone",
+  "orientation": "portrait"
+}

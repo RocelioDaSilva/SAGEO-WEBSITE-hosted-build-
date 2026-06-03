@@ -1,0 +1,127 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", Georgia, Cambria, serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Custom background animations and subtle styles */
+body {
+  font-family: var(--font-sans);
+  background-color: #030712; /* deepest navy dark gray */
+  color: #f8fafc; /* slate-50 */
+  overflow-x: hidden;
+  position: relative;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #020408;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #111827;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1f2937;
+}
+
+/* SAGEO Reference Design Classes */
+.bg-midnight-radial {
+  background: radial-gradient(circle at 50% 10%, #0a1128 0%, #030408 100%);
+}
+
+.text-gold {
+  color: #dfac34;
+}
+
+.bg-gold {
+  background-color: #dfac34;
+}
+
+.border-gold {
+  border-color: #dfac34;
+}
+
+.gold-glow {
+  box-shadow: 0 0 25px -5px rgba(223, 172, 52, 0.25);
+}
+
+.blue-glow {
+  box-shadow: 0 0 30px -5px rgba(59, 130, 246, 0.25);
+}
+
+.emerald-glow {
+  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.2);
+}
+
+.glass-morphic {
+  background: rgba(10, 15, 30, 0.65);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(223, 172, 52, 0.12);
+}
+
+.glass-morphic-light {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.editorial-serif {
+  font-family: var(--font-serif);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 40px -10px rgba(16, 185, 129, 0.15);
+}
+
+.glow-amber {
+  box-shadow: 0 0 40px -10px rgba(245, 158, 11, 0.15);
+}
+
+@keyframes scannerBorderPulse {
+  0%, 100% {
+    border-color: rgba(59, 130, 246, 0.2);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.05);
+  }
+  50% {
+    border-color: rgba(16, 185, 129, 0.65);
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+  }
+}
+
+.scanner-border-pulse {
+  animation: scannerBorderPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes laserSweep {
+  0% {
+    top: 4%;
+    opacity: 0.3;
+  }
+  50% {
+    top: 96%;
+    opacity: 1;
+    text-shadow: 0 0 12px rgba(16, 185, 129, 0.8);
+  }
+  100% {
+    top: 4%;
+    opacity: 0.3;
+  }
+}
+
+.laser-sweep {
+  animation: laserSweep 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+
