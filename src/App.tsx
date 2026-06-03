@@ -1198,7 +1198,9 @@ export default function App() {
               SAGEO PLATAFORMA INTEGRADA ATIVA &bull; GEOCIÊNCIAS: DO PETRÓLEO AOS MINERAIS CRÍTICOS
             </span>
           </div>
- 
+          <div className="text-slate-400 text-[10px] font-mono">
+            Secretariado Técnico Geral: <span className="text-[#dfac34] font-bold hover:underline cursor-pointer">{STAFF_PASSCODE}</span>
+          </div>
         </div>
       </div>
 
@@ -4084,7 +4086,9 @@ export default function App() {
                       placeholder="Indique o código..."
                       className="w-full bg-slate-950/80 border border-[#dfac34]/15 focus:border-[#dfac34]/65 rounded-xl px-4 py-3 text-sm text-center font-mono tracking-widest text-slate-100 outline-none transition-all focus:ring-1 focus:ring-[#dfac34]/30"
                     />
-                    
+                    <p className="text-[10px] text-slate-500 mt-2 text-center">
+                      Dica de segurança local: <code className="text-[#dfac34] text-[11px] font-mono font-bold">{STAFF_PASSCODE}</code>
+                    </p>
                   </div>
 
                   <button

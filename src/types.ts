@@ -58,6 +58,7 @@ export interface GalleryPost {
   image_url: string;
   created_at: string;
   likes?: number;
+  status?: 'pending' | 'approved' | 'rejected';
 }
 
 export interface Contributor {

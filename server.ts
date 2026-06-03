@@ -815,6 +815,138 @@ async function startServer() {
     });
 
     writeDB(db);
+
+    // Dispatch Official Institutional Invitation Email with QR code details!
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpPort = parseInt(process.env.SMTP_PORT || "587", 10);
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+    const smtpFrom = process.env.SMTP_FROM || smtpUser;
+    const apiKey = process.env.RESEND_API_KEY;
+
+    const useSmtp = !!(smtpHost && smtpUser && smtpPass);
+    const useResend = !useSmtp && !!(apiKey && apiKey.startsWith("re_"));
+
+    const invitationSubject = `🎟️ CONVITE INSTITUCIONAL SAGEO: Entrada Confirmada - ${currentEvent ? currentEvent.title : 'Evento'}`;
+    const qrData = JSON.stringify({ registration_id: matched.id, qr_token: matched.qr_token });
+    const qrImageURL = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
+
+    const invitationHTML = `
+      <div style="font-family: 'Inter', sans-serif; background-color: #030712; padding: 40px; color: #f8fafc; border-radius: 16px; border: 1px solid #1e293b; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #dfac34; font-family: sans-serif; margin-bottom: 25px; text-transform: uppercase; font-size: 20px; font-weight: bold; text-align: center; border-bottom: 2px solid rgba(223, 172, 52, 0.2); padding-bottom: 12px; letter-spacing: 2px;">S A G E O &nbsp; 2 0 2 6</h2>
+        <h3 style="color: #ffffff; font-family: serif; font-size: 18px; margin-top: 25px;">Olá ${matched.first_name} ${matched.last_name},</h3>
+        <p style="color: #34d399; font-size: 15px; font-weight: bold; margin-bottom: 15px;">A tua inscrição académica foi totalmente confirmada!</p>
+        <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">Temos o prazer de te enviar o teu <strong>Convite Oficial Institucional</strong> com o bilhete e o respetivo código QR de acesso para a atividade:</p>
+        
+        <div style="margin: 25px 0; border: 1.5px solid rgba(52, 211, 153, 0.3); padding: 25px; border-radius: 12px; background: rgba(52, 211, 153, 0.02); text-align: left;">
+          <h4 style="margin: 0 0 15px 0; color: #ffffff; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px;">${currentEvent ? currentEvent.title : 'Atividade SAGEO'}</h4>
+          <p style="margin: 0; font-size: 13px; color: #94a3b8; font-family: monospace;"><strong>Número de Estudante:</strong> ${matched.student_number}</p>
+          <p style="margin: 6px 0 0 0; font-size: 13px; color: #94a3b8; font-family: monospace;"><strong>E-mail Institucional:</strong> ${matched.institutional_email}</p>
+          <p style="margin: 6px 0 0 0; font-size: 13px; color: #94a3b8; font-family: monospace;"><strong>Localização:</strong> ${currentEvent ? currentEvent.location : 'Anfiteatro / Sala'}</p>
+          <p style="margin: 6px 0 0 0; font-size: 13px; color: #94a3b8; font-family: monospace;"><strong>Data / Horário:</strong> ${currentEvent ? currentEvent.date : ''} às ${currentEvent ? currentEvent.start_time : ''}</p>
+          <p style="margin: 6px 0 0 0; font-size: 13px; color: #dfac34; font-family: monospace;"><strong>Código QR Token:</strong> ${matched.qr_token}</p>
+        </div>
+
+        <div style="margin: 30px 0; text-align: center; background: #0b1329; padding: 20px; border-radius: 12px; border: 1px solid #1e293b;">
+          <p style="color: #cbd5e1; font-size: 13px; margin-bottom: 12px;"><strong>O Teu Cartão QR de Acesso:</strong></p>
+          <img src="${qrImageURL}" alt="Token QR SAGEO" style="border: 4px solid #ffffff; border-radius: 8px; width: 150px; height: 150px; display: inline-block;" />
+          <p style="color: #94a3b8; font-size: 11px; margin-top: 10px; line-height: 1.4;">Alinha este código no visor do leitor óptico SAGEO (via smartphone ou portátil) no check-in do evento.</p>
+        </div>
+
+        <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; margin-top: 30px;">
+          ⚠️ <strong>Nota Curricular:</strong> Para assinalar o aproveitamento lúdico e obter o certificado (4.0 horas ECTS), a tua presença física deve ser validada pela equipa de portagem na entrada.
+        </p>
+
+        <p style="font-size: 11px; color: #64748b; margin-top: 40px; border-top: 1px solid #1e293b; padding-top: 15px; text-align: center;">
+          Semana Académica de Engenharia e Organização &copy; 2026. Processamento curricular unificado do ECTS.
+        </p>
+      </div>
+    `;
+
+    if (useSmtp) {
+      (async () => {
+        try {
+          console.log(`[SMTP Invitation Dispatch] Triggering official ticket invite to ${matched.institutional_email} via SMTP`);
+          const transporter = nodemailer.createTransport({
+            host: smtpHost,
+            port: smtpPort,
+            secure: smtpPort === 465,
+            auth: {
+              user: smtpUser,
+              pass: smtpPass
+            },
+            tls: {
+              rejectUnauthorized: false
+            }
+          });
+
+          await transporter.sendMail({
+            from: smtpFrom || smtpUser,
+            to: matched.institutional_email,
+            subject: invitationSubject,
+            html: invitationHTML
+          });
+
+          db.auditLogs.push({
+            id: `aud-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            action: "EMAIL_REAL_SENT",
+            details: `Convite Oficial: disparado e-mail real de convite (com bilhete QR e dados de acesso) via SMTP para ${matched.institutional_email}.`,
+            status: "success",
+            studentNumber: matched.student_number,
+            eventId: matched.event_id
+          });
+          writeDB(db);
+        } catch (err: any) {
+          console.error("[SMTP Invitation Error]", err);
+        }
+      })();
+    } else if (useResend) {
+      (async () => {
+        try {
+          console.log(`[Resend Invitation Dispatch] Triggering official ticket invite to ${matched.institutional_email} via Resend`);
+          await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              from: "onboarding@resend.dev",
+              to: [matched.institutional_email],
+              subject: invitationSubject,
+              html: invitationHTML
+            })
+          });
+
+          db.auditLogs.push({
+            id: `aud-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            action: "EMAIL_REAL_SENT",
+            details: `Convite Oficial: disparado e-mail real de convite (com bilhete QR e dados de acesso) via Resend para ${matched.institutional_email}.`,
+            status: "success",
+            studentNumber: matched.student_number,
+            eventId: matched.event_id
+          });
+          writeDB(db);
+        } catch (err: any) {
+          console.error("[Resend Invitation Error]", err);
+        }
+      })();
+    } else {
+      console.log(`[Email Mock Simulation Invitation] To: ${matched.institutional_email} | Ticket QR Data: ${qrData}`);
+      db.auditLogs.push({
+        id: `aud-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        timestamp: new Date().toISOString(),
+        action: "EMAIL_SIMULATED",
+        details: `Convite Oficial: disparado e-mail de convite simulado (com bilhete QR e dados de acesso) para ${matched.institutional_email}. Token: ${matched.qr_token}`,
+        status: "success",
+        studentNumber: matched.student_number,
+        eventId: matched.event_id
+      });
+      writeDB(db);
+    }
+
     res.json({ success: true, registration: matched });
   });
 
@@ -972,7 +1104,9 @@ async function startServer() {
 
   // REST API: GET Shared Gallery posts
   app.get("/api/gallery", (req, res) => {
-    res.json(db.gallery);
+    // Only return posts that are approved or do not have a set status (legacy initial seeds)
+    const approved = db.gallery.filter(p => !p.status || p.status === 'approved');
+    res.json(approved);
   });
 
   // REST API: POST Shared Gallery posts
@@ -990,7 +1124,8 @@ async function startServer() {
       title: sanitizeInput(title),
       description: sanitizeInput(description),
       image_url: image_url, // allow unsplash direct linkage
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      status: 'pending' // requires administrative approval
     };
 
     db.gallery.unshift(newPost); // push latest to top
@@ -998,12 +1133,62 @@ async function startServer() {
       id: `aud-${Date.now()}`,
       timestamp: new Date().toISOString(),
       action: "GALLERY_ADD",
-      details: `Novo registo fotográfico partilhado: "${newPost.title}"`,
+      details: `Novo registo fotográfico submetido para moderação: "${newPost.title}"`,
       status: "info"
     });
 
     writeDB(db);
     res.status(201).json(newPost);
+  });
+
+  // REST API: GET Admin All Gallery posts (including pending ones)
+  app.get("/api/admin/gallery", (req, res) => {
+    res.json(db.gallery);
+  });
+
+  // REST API: POST Admin Gallery approval
+  app.post("/api/admin/gallery/approve", (req, res) => {
+    const { id } = req.body;
+    const post = db.gallery.find(p => p.id === id);
+    if (!post) {
+      return res.status(404).json({ error: "Registo fotográfico não encontrado." });
+    }
+    
+    post.status = 'approved';
+    
+    db.auditLogs.push({
+      id: `aud-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: "GALLERY_APPROVE",
+      details: `Registo fotográfico aprovado pelo administrador: "${post.title}"`,
+      status: "success"
+    });
+    
+    writeDB(db);
+    res.json({ success: true, post });
+  });
+
+  // REST API: POST Admin Gallery rejection
+  app.post("/api/admin/gallery/reject", (req, res) => {
+    const { id } = req.body;
+    const postIndex = db.gallery.findIndex(p => p.id === id);
+    if (postIndex === -1) {
+      return res.status(404).json({ error: "Registo fotográfico não encontrado." });
+    }
+    
+    const post = db.gallery[postIndex];
+    post.status = 'rejected';
+    
+    db.auditLogs.push({
+      id: `aud-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: "GALLERY_REJECT",
+      details: `Registo fotográfico rejeitado/arquivado pelo administrador: "${post.title}"`,
+      status: "info"
+    });
+    
+    writeDB(db);
+    res.json({ success: true });
   });
 
   // REST API: GET Waitlist list

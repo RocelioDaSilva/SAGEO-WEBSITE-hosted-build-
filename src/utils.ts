@@ -181,6 +181,43 @@ export const fetchGallery = async (): Promise<GalleryPost[]> => {
   }
 };
 
+export const fetchAdminGallery = async (): Promise<GalleryPost[]> => {
+  try {
+    const res = await fetch("/api/admin/gallery");
+    if (!res.ok) throw new Error();
+    return await res.json();
+  } catch (err) {
+    console.warn("Utilizando galeria local (Offline Mode / Netlify)");
+    return getStoredGallery();
+  }
+};
+
+export const approveGalleryPost = async (id: string): Promise<boolean> => {
+  try {
+    const res = await fetch("/api/admin/gallery/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id })
+    });
+    return res.ok;
+  } catch (err) {
+    return false;
+  }
+};
+
+export const rejectGalleryPost = async (id: string): Promise<boolean> => {
+  try {
+    const res = await fetch("/api/admin/gallery/reject", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id })
+    });
+    return res.ok;
+  } catch (err) {
+    return false;
+  }
+};
+
 // Log mock helper
 export const addLocalAuditLog = (action: string, details: string, status: "success" | "failed" | "info", studentNumber?: string, eventId?: string) => {
   try {
