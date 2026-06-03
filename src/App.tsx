@@ -37,7 +37,8 @@ import {
   Layers,
   X,
   KeyRound,
-  BarChart3
+  BarChart3,
+  Camera
 } from 'lucide-react';
 
 import { Event, Registration, GalleryPost, WaitlistEntry, Contributor, Exhibition, BrainstormingIdea, ThematicAxis } from './types';
@@ -67,7 +68,10 @@ import {
   addEventServer,
   deleteEventServer,
   resetServerDB,
-  cancelRegistration
+  cancelRegistration,
+  fetchAdminGallery,
+  approveGalleryPost,
+  rejectGalleryPost
 } from './utils';
 
 // Subcomponents
@@ -96,9 +100,14 @@ export default function App() {
 
   // Ticket Recovery States
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmTokenInput, setConfirmTokenInput] = useState('');
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [confirmingReg, setConfirmingReg] = useState<Registration | null>(null);
   const [recoveryStudentNumber, setRecoveryStudentNumber] = useState('');
   const [recoveryEventId, setRecoveryEventId] = useState('');
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [adminGallery, setAdminGallery] = useState<GalleryPost[]>([]);
 
   // Administrative Area auth
   const [adminPasscode, setAdminPasscode] = useState('');
@@ -276,11 +285,13 @@ export default function App() {
       const serverRegs = await fetchRegistrations();
       const serverWaitlist = await fetchWaitlist();
       const serverGallery = await fetchGallery();
+      const serverAdminGallery = await fetchAdminGallery();
 
       setEvents(serverEvents);
       setRegistrations(serverRegs);
       setWaitlist(serverWaitlist);
       setGallery(serverGallery);
+      setAdminGallery(serverAdminGallery);
 
       saveStoredEvents(serverEvents);
       saveStoredRegistrations(serverRegs);
@@ -304,6 +315,7 @@ export default function App() {
     setRegistrations(getStoredRegistrations());
     setWaitlist(getStoredWaitlist());
     setGallery(getStoredGallery());
+    setAdminGallery(getStoredGallery());
 
     const storedEvts = getStoredEvents();
     if (storedEvts.length > 0) {
@@ -478,7 +490,11 @@ export default function App() {
       if (result.status === "waitlist") {
         triggerToast('⏳ Lotação Limite Atingida! Foi posicionado com sucesso na Lista de Espera Ordenada. Entraremos em contacto para validação.', 'info');
       } else {
-        triggerToast('⏳ Pré-inscrição registada! Um e-mail de confirmação foi enviado para a tua caixa de correio académica. Ativa a tua vaga acedendo ao e-mail enviado.', 'warning');
+        setConfirmingReg(result.registration);
+        setConfirmTokenInput('');
+        setConfirmError(null);
+        setShowConfirmModal(true);
+        triggerToast('⏳ Pré-inscrição registada! Um código de confirmação foi enviado para a tua caixa de correio académica.', 'warning');
       }
       setSelectedEventId(null);
     } catch (err: any) {
@@ -572,6 +588,24 @@ export default function App() {
       }
     } catch (err: any) {
       triggerToast(err.message || 'Erro ao processar confirmação de vaga.', 'error');
+      throw err; // throw to let modal capture error
+    }
+  };
+
+  const handleModalConfirmCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setConfirmError(null);
+    const code = confirmTokenInput.trim().toUpperCase();
+    if (!code) {
+      setConfirmError('Por favor, introduza o código de confirmação.');
+      return;
+    }
+    try {
+      await handleEmailConfirmedSuccess(code);
+      setShowConfirmModal(false);
+      setConfirmTokenInput('');
+    } catch (err: any) {
+      setConfirmError(err.message || 'Código de confirmação inválido ou expirado.');
     }
   };
 
@@ -1164,9 +1198,7 @@ export default function App() {
               SAGEO PLATAFORMA INTEGRADA ATIVA &bull; GEOCIÊNCIAS: DO PETRÓLEO AOS MINERAIS CRÍTICOS
             </span>
           </div>
-          <div className="text-slate-400 text-[10px] font-mono">
-            Secretariado Técnico Geral: <span className="text-[#dfac34] font-bold hover:underline cursor-pointer">{STAFF_PASSCODE}</span>
-          </div>
+ 
         </div>
       </div>
 
@@ -4052,9 +4084,7 @@ export default function App() {
                       placeholder="Indique o código..."
                       className="w-full bg-slate-950/80 border border-[#dfac34]/15 focus:border-[#dfac34]/65 rounded-xl px-4 py-3 text-sm text-center font-mono tracking-widest text-slate-100 outline-none transition-all focus:ring-1 focus:ring-[#dfac34]/30"
                     />
-                    <p className="text-[10px] text-slate-500 mt-2 text-center">
-                      Dica de segurança local: <code className="text-[#dfac34] text-[11px] font-mono font-bold">{STAFF_PASSCODE}</code>
-                    </p>
+                    
                   </div>
 
                   <button
@@ -4131,6 +4161,7 @@ export default function App() {
                     { id: 'eventos', label: 'Gestor de Atividades & Capacidade', icon: Calendar },
                     { id: 'participantes', label: 'Estudantes & Certificados', icon: Users },
                     { id: 'dashboard', label: 'Estatísticas & Sucesso', icon: BarChart3 },
+                    { id: 'moderacao', label: 'Moderação de Fotos', icon: Camera },
                   ].map(tab => {
                     const Icon = tab.icon;
                     return (
@@ -4738,6 +4769,183 @@ export default function App() {
                   <OrganizerDashboard events={events} registrations={registrations} />
                 )}
 
+                {/* SUB TAB 6: PHOTO APPROVAL MODERATION PANEL */}
+                {adminSubTab === 'moderacao' && (
+                  <div className="space-y-6 text-left animate-fade-in" id="photo-moderation-panel">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/50 p-6 border border-slate-800 rounded-2xl">
+                      <div>
+                        <h4 className="font-serif text-lg font-bold text-slate-100 flex items-center gap-2">
+                          <Camera className="w-5 h-5 text-[#dfac34]" /> Moderador das Fotografias Partilhadas
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Consulte os registos fotográficos submetidos pelos estudantes na galeria pública. Os ficheiros só serão visíveis no website público e catálogo de atividades após aprovação.
+                        </p>
+                      </div>
+                      <button
+                        onClick={syncBackendData}
+                        className="px-4 py-2 bg-slate-950 hover:bg-slate-900 border border-slate-800 rounded-xl text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0"
+                      >
+                        🔄 Atualizar Lista
+                      </button>
+                    </div>
+
+                    {/* Pending Submissions section */}
+                    <div className="space-y-4">
+                      <div className="border-l-4 border-amber-500 pl-3">
+                        <h5 className="text-xs uppercase tracking-wider font-extrabold text-amber-500 font-mono">
+                          Pendente de Aprovação ({adminGallery.filter(p => p.status === 'pending').length})
+                        </h5>
+                      </div>
+
+                      {adminGallery.filter(p => p.status === 'pending').length === 0 ? (
+                        <div className="bg-slate-900/20 border border-slate-850/60 p-10 rounded-2xl text-center">
+                          <span className="text-3xl">🎉</span>
+                          <p className="text-xs text-slate-500 italic mt-3">Todas as fotos submetidas foram moderadas! Nenhuma foto pendente de análise.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="pending-moderation-grid">
+                          {adminGallery.filter(p => p.status === 'pending').map(post => (
+                            <div key={post.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-[#dfac34]/30 duration-300 flex flex-col justify-between">
+                              <div className="relative h-44 bg-slate-950 overflow-hidden">
+                                <img
+                                  src={post.image_url}
+                                  alt={post.title}
+                                  referrerPolicy="no-referrer"
+                                  className="w-full h-full object-cover"
+                                />
+                                <span className="absolute top-2.5 left-2.5 bg-amber-500/90 text-slate-950 text-[9px] font-bold uppercase py-0.5 px-2 rounded-md font-mono">
+                                  ⏳ Pendente
+                                </span>
+                              </div>
+                              <div className="p-4 flex-1 flex flex-col justify-between text-left">
+                                <div className="space-y-1.5">
+                                  <h6 className="font-bold text-slate-200 text-sm leading-tight">{post.title}</h6>
+                                  {post.event_title && (
+                                    <p className="text-[10px] text-[#dfac34] font-mono leading-none">
+                                      🔗 {post.event_title}
+                                    </p>
+                                  )}
+                                  <p className="text-xs text-slate-400 font-normal leading-relaxed line-clamp-3">
+                                    {post.description}
+                                  </p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-850/60">
+                                  <button
+                                    onClick={async () => {
+                                      const success = await approveGalleryPost(post.id);
+                                      if (success) {
+                                        triggerToast('✨ Fotografia aprovada e integrada na galeria pública com sucesso!', 'success');
+                                        await syncBackendData();
+                                      } else {
+                                        triggerToast('Erro ao aprovar fotografia.', 'error');
+                                      }
+                                    }}
+                                    className="py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black uppercase text-[10px] tracking-wider rounded-xl transition-all duration-200 cursor-pointer text-center"
+                                  >
+                                    ✓ Aprovar
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      const success = await rejectGalleryPost(post.id);
+                                      if (success) {
+                                        triggerToast('Fotografia arquivada / rejeitada com sucesso.', 'info');
+                                        await syncBackendData();
+                                      } else {
+                                        triggerToast('Erro ao rejeitar fotografia.', 'error');
+                                      }
+                                    }}
+                                    className="py-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 font-black uppercase text-[10px] tracking-wider rounded-xl transition-all duration-200 cursor-pointer text-center"
+                                  >
+                                    ✕ Rejeitar
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Already Moderated section */}
+                    <div className="space-y-4 pt-4">
+                      <div className="border-l-4 border-slate-700 pl-3">
+                        <h5 className="text-xs uppercase tracking-wider font-extrabold text-slate-400 font-mono">
+                          Histórico de Moderação ({adminGallery.filter(p => p.status !== 'pending').length})
+                        </h5>
+                      </div>
+
+                      {adminGallery.filter(p => p.status !== 'pending').length === 0 ? (
+                        <p className="text-xs text-slate-500 italic">Nenhum registo de foto moderada disponível de momento.</p>
+                      ) : (
+                        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs text-left">
+                              <thead className="bg-slate-950/50 text-slate-400 font-mono text-[10px] uppercase border-b border-slate-800">
+                                <tr>
+                                  <th className="py-3 px-4">Fotografia</th>
+                                  <th className="py-3 px-4">Título & Descrição</th>
+                                  <th className="py-3 px-4">Atividade Relacionada</th>
+                                  <th className="py-3 px-4">Estado</th>
+                                  <th className="py-3 px-4 text-right">Ação Corretiva</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-850">
+                                {adminGallery.filter(p => p.status !== 'pending').map(post => (
+                                  <tr key={post.id} className="hover:bg-slate-950/25">
+                                    <td className="py-3 px-4">
+                                      <img
+                                        src={post.image_url}
+                                        alt={post.title}
+                                        referrerPolicy="no-referrer"
+                                        className="w-16 h-12 object-cover rounded-md border border-slate-800 scale-up"
+                                      />
+                                    </td>
+                                    <td className="py-3 px-4">
+                                      <p className="font-bold text-slate-200">{post.title}</p>
+                                      <p className="text-[10px] text-slate-404 line-clamp-1">{post.description}</p>
+                                    </td>
+                                    <td className="py-3 px-4 text-slate-404">
+                                      {post.event_title || <span className="text-slate-600 font-mono">Geral SAGEO</span>}
+                                    </td>
+                                    <td className="py-3 px-4">
+                                      {post.status === 'approved' ? (
+                                        <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/25 rounded-md text-[10px] uppercase font-mono">
+                                          ✓ Aprovado
+                                        </span>
+                                      ) : (
+                                        <span className="px-2 py-0.5 bg-rose-500/10 text-rose-400 font-semibold border border-rose-500/25 rounded-md text-[10px] uppercase font-mono">
+                                          ✕ Rejeitado
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="py-3 px-4 text-right">
+                                      <button
+                                        onClick={async () => {
+                                          const success = post.status === 'approved' ? await rejectGalleryPost(post.id) : await approveGalleryPost(post.id);
+                                          if (success) {
+                                            triggerToast('Estado de aprovação atualizado com sucesso.', 'success');
+                                            await syncBackendData();
+                                          } else {
+                                            triggerToast('Erro ao alternar moderação.', 'error');
+                                          }
+                                        }}
+                                        className="px-2.5 py-1 text-[10px] font-bold border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white rounded-lg bg-slate-950 hover:bg-slate-900 transition-all cursor-pointer"
+                                      >
+                                        Reverter Estado
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
               </div>
             )}
 
@@ -4830,6 +5038,83 @@ export default function App() {
                   className="px-4 py-2 bg-[#dfac34] hover:bg-amber-500 text-slate-950 text-xs font-bold rounded-xl transition-colors font-sans uppercase tracking-wider"
                 >
                   Desbloquear Acesso
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* INTERACTIVE REGISTRATION CODE CONFIRMATION MODAL OVERLAY */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 z-55 animate-fade-in" id="confirm-modal-overlay">
+          <div className="bg-slate-900 border border-[#dfac34]/20 w-full max-w-md rounded-2xl p-6 shadow-2xl relative animate-scale-up text-left" id="confirm-modal">
+            <button
+              onClick={() => {
+                setShowConfirmModal(false);
+                setConfirmingReg(null);
+                setConfirmTokenInput('');
+                setConfirmError(null);
+              }}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-950/50 hover:bg-slate-900 border border-slate-800 p-1.5 rounded-full transition-colors cursor-pointer"
+              id="confirm-modal-close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-2 mb-4">
+              <ShieldCheck className="w-5 h-5 text-[#dfac34]" />
+              <h3 className="font-bold text-slate-100 text-base">Código de Confirmação Requerido</h3>
+            </div>
+
+            <p className="text-xs text-slate-400 leading-relaxed mb-4">
+              Enviámos um código de confirmação temporário de 5 minutos para o email institucional de estudante: <strong className="text-slate-200">{confirmingReg?.institutional_email || confirmingReg?.institutional_email}</strong>.
+            </p>
+
+            <p className="text-[11px] text-amber-400/80 bg-amber-950/15 border border-amber-900/30 p-2.5 rounded-xl mb-4">
+              💡 <strong>Simulação Local:</strong> Se não tiver um servidor SMTP configurado, pode aceder a este código abrindo o painel flutuante de <strong>Correio SAGEO</strong> no canto superior do ecrã!
+            </p>
+
+            <form onSubmit={handleModalConfirmCode} className="space-y-4">
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1.5 font-mono">
+                  Introduza o Código (TOK-XXXXX)
+                </label>
+                <input
+                  required
+                  type="text"
+                  placeholder="Ex: TOK-58102"
+                  value={confirmTokenInput}
+                  onChange={(e) => setConfirmTokenInput(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-center tracking-widest text-[#dfac34] font-mono outline-none focus:border-[#dfac34]"
+                  id="confirm-token-input"
+                />
+              </div>
+
+              {confirmError && (
+                <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[11px] rounded-lg font-mono" id="confirm-error-message">
+                  ⚠️ {confirmError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowConfirmModal(false);
+                    setConfirmingReg(null);
+                    setConfirmTokenInput('');
+                    setConfirmError(null);
+                  }}
+                  className="px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-200 bg-slate-950 hover:bg-slate-950/70 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-[#dfac34] hover:bg-amber-500 text-slate-950 text-xs font-bold rounded-xl transition-colors font-sans uppercase tracking-wider gold-glow cursor-pointer"
+                >
+                  Confirmar Inscrição
                 </button>
               </div>
             </form>
