@@ -1,0 +1,6 @@
+{
+  "name": "Plataforma Digital SAGEO",
+  "description": "Plataforma digital para gestão da Semana Académica de Geociências (SAGEO) do ISPTEC, sob o tema 'Do Petróleo aos Minerais Críticos: O Papel dos Geo‐Recursos na Transição Energética e Industrial de Angola'.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
