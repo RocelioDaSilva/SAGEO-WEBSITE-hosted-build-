@@ -213,13 +213,23 @@ function customRateLimiter(limit: number, windowMs: number, keyPrefix: string = 
 }
 
 // Help verifying admin passcode credentials
-function isAuthorizedAdmin(req: express.Request): boolean {
-  const passcode = req.headers["x-sageo-passcode"] || req.query.passcode || req.body.passcode;
-  if (!passcode) return false;
-  const p = String(passcode).trim().toUpperCase();
-  // Validates any of our official check levels
-  return p === "SAGEO2026-ADM" || p === "SAGEO2026" || p === "SAGEO2026-ORG" || p === "SAGEO2026-STF" || p === "1234";
-}
+  function getAdminPasscodes(): Set<string> {
+    const raw = (process.env.ADMIN_PASSCODES || process.env.SAGEO_PASSCODES || "").toString();
+    return new Set(raw.split(",").map(s => s.trim().toUpperCase()).filter(Boolean));
+  }
+
+  function isAuthorizedAdmin(req: express.Request): boolean {
+    const passcode = req.headers["x-sageo-passcode"] || req.query.passcode || req.body.passcode;
+    if (!passcode) return false;
+    const p = String(passcode).trim().toUpperCase();
+    const allowed = getAdminPasscodes();
+    if (allowed.size === 0) {
+      // Deny by default if no admin passcodes are configured to avoid accidental exposure
+      console.warn("WARNING: No ADMIN_PASSCODES configured in environment. Admin endpoints are disabled.");
+      return false;
+    }
+    return allowed.has(p);
+  }
 
 // Middleware to enforce administrative privileges on protected routes
 function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
@@ -1361,7 +1371,8 @@ async function startServer() {
   // API Staff Admin database restoration and resets
   app.post("/api/admin/reset", requireAdminAuth, (req, res) => {
     const { passcode } = req.body;
-    if (passcode !== "SAGEO2026") {
+    const allowed = getAdminPasscodes();
+    if (!passcode || !allowed.has(String(passcode).trim().toUpperCase())) {
       return res.status(403).json({ error: "Código administrativo incorreto." });
     }
 

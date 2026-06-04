@@ -536,7 +536,7 @@ export default function ScannerSimulator({ onCheckinSuccess, triggerRefresh, sel
                           className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-200 outline-none focus:border-amber-500 transition-colors placeholder-slate-600"
                         />
                         <p className="text-[10px] text-slate-500 mt-1.5 italic">
-                          Dica para teste rápido: "{scannedRegistration.secret_answer}" (Case-insensitive)
+                          Dica para teste rápido: utilize contas de teste configuradas no ambiente de desenvolvimento.
                         </p>
                       </div>
                     )}
