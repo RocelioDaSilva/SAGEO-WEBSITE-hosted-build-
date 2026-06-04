@@ -264,6 +264,17 @@ export default function App() {
 
   // Admin: New Event Form State
   const [showAddEventForm, setShowAddEventForm] = useState(false);
+  const [editingEventImage, setEditingEventImage] = useState<Event | null>(null);
+  const [tempImageUrl, setTempImageUrl] = useState('');
+
+  useEffect(() => {
+    if (editingEventImage) {
+      setTempImageUrl(editingEventImage.image_url || '');
+    } else {
+      setTempImageUrl('');
+    }
+  }, [editingEventImage]);
+
   const [newEventForm, setNewEventForm] = useState({
     title: '',
     description: '',
@@ -1123,6 +1134,25 @@ export default function App() {
       triggerToast('🆕 Novo Evento adicionado com sucesso ao Cronograma SAGEO!', 'success');
     } catch (err: any) {
       triggerToast(err.message || 'Erro ao adicionar atividade no cronograma.', 'error');
+    }
+  };
+
+  const handleSaveEventImage = async (eventId: string, newImageUrl: string) => {
+    try {
+      const eventToEdit = events.find(e => e.id === eventId);
+      if (!eventToEdit) return;
+
+      const payload: Partial<Event> = {
+        ...eventToEdit,
+        image_url: newImageUrl
+      };
+
+      await addEventServer(payload);
+      await syncBackendData();
+      setEditingEventImage(null);
+      triggerToast('🖼️ Imagem do evento atualizada com sucesso!', 'success');
+    } catch (err: any) {
+      triggerToast(err.message || 'Erro ao atualizar a imagem do evento.', 'error');
     }
   };
 
@@ -4541,6 +4571,17 @@ export default function App() {
                             />
                           </div>
 
+                          <div>
+                            <label className="block text-slate-400 mb-1">Descrição Detalhada do Evento</label>
+                            <textarea
+                              value={newEventForm.description}
+                              onChange={(e) => setNewEventForm({ ...newEventForm, description: e.target.value })}
+                              placeholder="Fale brevemente sobre o tema, conteúdo programático ou objetivo da atividade académica..."
+                              rows={3}
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 outline-none focus:border-[#dfac34] font-sans text-xs"
+                            />
+                          </div>
+
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <label className="block text-slate-400 mb-1">Sala / Localização</label>
@@ -4646,6 +4687,72 @@ export default function App() {
                             </p>
                           </div>
 
+                          <div>
+                            <label className="block text-slate-400 mb-1 font-semibold text-[#dfac34]">
+                              Imagem de Prévia / Banner do Evento (URL)
+                            </label>
+                            <input
+                              type="text"
+                              value={newEventForm.image_url}
+                              onChange={(e) => setNewEventForm({ ...newEventForm, image_url: e.target.value })}
+                              placeholder="Insira o link direto de uma imagem ou escolha um preset abaixo"
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 outline-none focus:border-[#dfac34] font-mono text-[11px]"
+                            />
+                            
+                            <div className="mt-2.5">
+                              <span className="block text-[10px] text-slate-400 font-semibold mb-1.5 uppercase tracking-wider">
+                                Presets de Alta Qualidade SAGEO:
+                              </span>
+                              <div className="grid grid-cols-4 gap-2">
+                                {[
+                                  { label: 'Palestra / Auditório', url: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=800&q=80' },
+                                  { label: 'Workshop Prático', url: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=800&q=80' },
+                                  { label: 'Exposição / Galeria', url: 'https://images.unsplash.com/photo-1540317580114-ed684c82b71d?auto=format&fit=crop&w=800&q=80' },
+                                  { label: 'Tecnologia / Geral', url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80' },
+                                  { label: 'Reunião / Negócios', url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80' },
+                                  { label: 'Design / Criatividade', url: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=800&q=80' },
+                                  { label: 'Parceria / Rede', url: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=800&q=80' },
+                                  { label: 'Programação', url: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80' }
+                                ].map((p, i) => {
+                                  const isSelected = newEventForm.image_url === p.url;
+                                  return (
+                                    <button
+                                      key={i}
+                                      type="button"
+                                      onClick={() => setNewEventForm({ ...newEventForm, image_url: p.url })}
+                                      className={`p-1 border rounded-lg overflow-hidden flex flex-col justify-between items-center bg-slate-950 text-[9px] font-medium duration-150 relative text-center group ${
+                                        isSelected 
+                                          ? 'border-[#dfac34] bg-[#dfac34]/10 text-white' 
+                                          : 'border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                                      }`}
+                                    >
+                                      <div className="w-full h-8 overflow-hidden rounded mb-1 bg-slate-900 border border-slate-900/60">
+                                        <img src={p.url} alt={p.label} className="w-full h-full object-cover group-hover:scale-105 duration-300" referrerPolicy="no-referrer" />
+                                      </div>
+                                      <span className="truncate max-w-full text-[8px] font-mono leading-none py-0.5">{p.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            
+                            {/* LIVE PREVIEW BOX */}
+                            {newEventForm.image_url && (
+                              <div className="mt-3 bg-slate-950/60 border border-slate-800 p-2 rounded-xl flex items-center gap-3">
+                                <img 
+                                  src={getOptimizedImageUrl(newEventForm.image_url, 150)} 
+                                  alt="Preview" 
+                                  className="w-12 h-12 rounded-lg object-cover border border-slate-800 shrink-0"
+                                  referrerPolicy="no-referrer"
+                                />
+                                <div className="min-w-0 flex-1 text-left">
+                                  <span className="block text-[9px] font-mono text-emerald-400 font-bold uppercase tracking-widest">Visualização ao Vivo</span>
+                                  <p className="text-[10px] text-slate-500 truncate" title={newEventForm.image_url}>{newEventForm.image_url}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
                           <button
                             type="submit"
                             className="w-full py-3 bg-[#dfac34] hover:bg-[#dfac34]/80 text-[#0a0f1c] font-black rounded-xl text-xs uppercase tracking-widest transition-all duration-300 shadow-xl cursor-pointer"
@@ -4674,8 +4781,21 @@ export default function App() {
                             {events.map(e => (
                               <tr key={e.id} className="hover:bg-slate-950/25">
                                 <td className="py-3 px-3 font-semibold text-slate-200">
-                                  <div>{e.title}</div>
-                                  <span className="text-[10px] text-slate-500 block mt-0.5">{e.location}  |  Orador: {e.lecturer}</span>
+                                  <div className="flex items-center gap-3">
+                                    <div className="relative group/thumb w-12 h-12 rounded-lg overflow-hidden border border-slate-800 shrink-0">
+                                      <img
+                                        src={getOptimizedImageUrl(e.image_url || "https://images.unsplash.com/photo-1540317580114-ed684c82b71d", 100)}
+                                        alt={e.title}
+                                        referrerPolicy="no-referrer"
+                                        loading="lazy"
+                                        className="w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-110"
+                                      />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="text-slate-200 font-bold text-xs" title={e.title}>{e.title}</div>
+                                      <span className="text-[10px] text-slate-500 block mt-0.5">{e.location}  |  Orador: {e.lecturer}</span>
+                                    </div>
+                                  </div>
                                 </td>
                                 <td className="py-3 px-3 text-slate-400 font-mono text-[11px]">
                                   {e.date} às {e.start_time} h
@@ -4739,16 +4859,26 @@ export default function App() {
                                   )}
                                 </td>
                                 <td className="py-3 px-3 text-right">
-                                  <button
-                                    onClick={() => {
-                                      if (confirm('Deseja mesmo remover permanentemente esta atividade escolar do cronograma?')) {
-                                        handleDeleteEvent(e.id);
-                                      }
-                                    }}
-                                    className="text-slate-600 hover:text-rose-400 font-bold transition-colors font-mono uppercase text-[9px] tracking-wider"
-                                  >
-                                    Remover
-                                  </button>
+                                  <div className="flex flex-col gap-1.5 items-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingEventImage(e)}
+                                      className="text-[#dfac34] hover:text-white font-extrabold transition-colors font-mono uppercase text-[9px] tracking-wider cursor-pointer"
+                                    >
+                                      Alterar Capa
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (confirm('Deseja mesmo remover permanentemente esta atividade escolar do cronograma?')) {
+                                          handleDeleteEvent(e.id);
+                                        }
+                                      }}
+                                      className="text-slate-600 hover:text-rose-400 font-bold transition-colors font-mono uppercase text-[9px] tracking-wider cursor-pointer"
+                                    >
+                                      Remover
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             ))}
@@ -4756,6 +4886,117 @@ export default function App() {
                         </table>
                       </div>
                     </div>
+
+                    {/* MODAL PARA EDITAR IMAGEM DO EVENTO */}
+                    {editingEventImage && (
+                      <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                        <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-scale-up">
+                          {/* Header */}
+                          <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/40">
+                            <div className="text-left">
+                              <h4 className="text-xs font-mono font-bold text-[#dfac34] uppercase tracking-wider">Alterar Imagem do Evento</h4>
+                              <p className="text-[10px] text-slate-400 font-medium truncate max-w-[280px]" title={editingEventImage.title}>
+                                {editingEventImage.title}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setEditingEventImage(null)}
+                              className="text-slate-500 hover:text-slate-350 text-xs font-mono uppercase bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800 hover:border-slate-700 cursor-pointer text-slate-300"
+                            >
+                              Fechar
+                            </button>
+                          </div>
+
+                          {/* Body */}
+                          <div className="p-5 space-y-4">
+                            <div className="text-left">
+                              <label className="block text-slate-400 mb-1.5 font-semibold text-[10px] uppercase font-mono tracking-wider">
+                                Link de Imagem Personalizado (URL)
+                              </label>
+                              <input
+                                type="text"
+                                value={tempImageUrl}
+                                onChange={(e) => setTempImageUrl(e.target.value)}
+                                placeholder="https://images.unsplash.com/..."
+                                className="w-full bg-slate-950 border border-slate-855 rounded-xl px-3 py-2 text-slate-200 outline-none focus:border-[#dfac34] font-mono text-[10px]"
+                              />
+                            </div>
+
+                            {/* Presets Grid */}
+                            <div className="space-y-1.5 text-left">
+                              <span className="block text-slate-400 font-semibold text-[10px] uppercase font-mono tracking-wider text-[#dfac34]/80">
+                                Curadoria de Presets de Imagem:
+                              </span>
+                              <div className="grid grid-cols-4 gap-2">
+                                {[
+                                  { label: 'Palestra / Auditório', url: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=800&q=80' },
+                                  { label: 'Workshop Prático', url: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=800&q=80' },
+                                  { label: 'Exposição / Galeria', url: 'https://images.unsplash.com/photo-1540317580114-ed684c82b71d?auto=format&fit=crop&w=800&q=80' },
+                                  { label: 'Tecnologia / Geral', url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80' },
+                                  { label: 'Reunião / Negócios', url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80' },
+                                  { label: 'Design / Criatividade', url: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=800&q=80' },
+                                  { label: 'Parceria / Rede', url: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=800&q=80' },
+                                  { label: 'Programação', url: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80' }
+                                ].map((p, i) => {
+                                  const isSelected = tempImageUrl === p.url;
+                                  return (
+                                    <button
+                                      key={i}
+                                      type="button"
+                                      onClick={() => setTempImageUrl(p.url)}
+                                      className={`p-1 border rounded-lg overflow-hidden flex flex-col justify-between items-center bg-slate-950 text-[9px] font-medium duration-150 relative text-center group cursor-pointer ${
+                                        isSelected 
+                                          ? 'border-[#dfac34] bg-[#dfac34]/10 text-white' 
+                                          : 'border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                                      }`}
+                                    >
+                                      <div className="w-full h-8 overflow-hidden rounded mb-1 bg-slate-900 border border-slate-900/60">
+                                        <img src={p.url} alt={p.label} className="w-full h-full object-cover group-hover:scale-105 duration-300" referrerPolicy="no-referrer" />
+                                      </div>
+                                      <span className="truncate max-w-full text-[7.5px] font-mono leading-none py-0.5">{p.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Preview */}
+                            {tempImageUrl && (
+                              <div className="bg-slate-950/80 border border-slate-850 p-3 rounded-xl space-y-2">
+                                <span className="block text-[9px] font-mono text-emerald-400 font-bold uppercase tracking-widest text-left">Pré-visualização da Capa</span>
+                                <div className="h-32 rounded-lg overflow-hidden border border-slate-800">
+                                  <img 
+                                    src={getOptimizedImageUrl(tempImageUrl, 400)} 
+                                    alt="Capa Preview" 
+                                    className="w-full h-full object-cover"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Footer */}
+                          <div className="p-4 bg-slate-950/40 border-t border-slate-800/80 flex gap-2 justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setEditingEventImage(null)}
+                              className="px-4 py-2 bg-slate-850 hover:bg-slate-750 text-xs font-bold text-slate-300 rounded-xl transition-colors cursor-pointer"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveEventImage(editingEventImage.id, tempImageUrl)}
+                              className="px-4 py-2 bg-[#dfac34] hover:bg-[#dfac34]/80 text-[#0a0f1c] text-xs font-black rounded-xl transition-colors cursor-pointer uppercase tracking-wider"
+                            >
+                              Confirmar & Salvar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                   </div>
                 )}
