@@ -1,10 +1,4 @@
+
 node_modules/
-build/
 dist/
-coverage/
-.DS_Store
-*.log
-.env*
-!.env.example
-server_db.json
-server_db_backup.json
+*.json   # only if you don't want any json files committed
