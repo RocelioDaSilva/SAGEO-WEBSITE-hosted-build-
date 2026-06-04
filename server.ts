@@ -427,7 +427,7 @@ async function startServer() {
 
   // CRUD API: Create or update events (Rollback capability preserved)
   app.post("/api/events", (req, res) => {
-    const { id, title, description, date, start_time, end_time, location, capacity, category, lecturer, course } = req.body;
+    const { id, title, description, date, start_time, end_time, location, capacity, category, lecturer, course, is_open, is_completed } = req.body;
     
     if (!title || !date || !start_time || !location) {
       return res.status(400).json({ error: "Parâmetros em falta. O título, data, hora e local são campos determinantes." });
@@ -435,6 +435,7 @@ async function startServer() {
 
     const eventId = id || `evt-${Date.now()}`;
     const existingIdx = db.events.findIndex(e => e.id === eventId);
+    const existingEvent = existingIdx >= 0 ? db.events[existingIdx] : null;
 
     const targetEvent: Event = {
       id: eventId,
@@ -446,9 +447,12 @@ async function startServer() {
       location: sanitizeInput(location),
       capacity: Math.min(45, Math.max(1, Number(capacity) || 45)), // strict max capacity 45 validation
       category: sanitizeInput(category || "integracao"),
-      is_open: true,
+      is_open: is_open !== undefined ? Boolean(is_open) : (existingEvent ? existingEvent.is_open : true),
+      is_completed: is_completed !== undefined ? Boolean(is_completed) : (existingEvent ? Boolean(existingEvent.is_completed) : false),
       lecturer: sanitizeInput(lecturer || ""),
-      course: sanitizeInput(course || "Ambos")
+      course: sanitizeInput(course || "Ambos"),
+      image_url: req.body.image_url || (existingEvent ? existingEvent.image_url : undefined),
+      report: req.body.report || (existingEvent ? existingEvent.report : undefined)
     };
 
     if (existingIdx >= 0) {

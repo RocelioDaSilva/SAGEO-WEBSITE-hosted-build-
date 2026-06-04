@@ -581,11 +581,6 @@ export default function App() {
       setActiveTab('home');
 
       triggerToast('✨ Excelente! Inscrição académica ativada e confirmada com sucesso! O teu QR Code de acesso está agora ativo.', 'success');
-
-      // Automatically generate a personalized certificate and dispatch to student institutional email!
-      if (evt) {
-        autoGenerateAndSendCertificate(confirmedReg, evt);
-      }
     } catch (err: any) {
       triggerToast(err.message || 'Erro ao processar confirmação de vaga.', 'error');
       throw err; // throw to let modal capture error
@@ -1099,6 +1094,51 @@ export default function App() {
       await syncBackendData();
     } catch (err: any) {
       triggerToast(err.message || 'Erro ao alternar status da atividade.', 'error');
+    }
+  };
+
+  // Admin demarcate/complete event and trigger mass certificate dispatch
+  const handleCompleteEvent = async (event: Event) => {
+    try {
+      const updatedEvent = {
+        ...event,
+        is_completed: true,
+        is_open: false // close registrations automatically upon completion
+      };
+      
+      // 1. Persist the state to the server (writes to JSON database)
+      await addEventServer(updatedEvent);
+      
+      // 2. Fetch fresh synchronized datasets
+      await syncBackendData();
+      
+      // 3. Select all checked-in and confirmed student registrations for this session
+      const targetRegistrations = registrations.filter(
+        r => r.event_id === event.id && r.checked_in
+      );
+      
+      if (targetRegistrations.length > 0) {
+        triggerToast(`Expedindo certificados de créditos para ${targetRegistrations.length} estudantes presentes...`, 'info');
+        
+        // Loop and auto generate & send certificates
+        let successfullySent = 0;
+        for (const reg of targetRegistrations) {
+          try {
+            await autoGenerateAndSendCertificate(reg, updatedEvent);
+            successfullySent++;
+          } catch (sendErr) {
+            console.error(`Erro ao enviar certificado para ${reg.institutional_email}:`, sendErr);
+          }
+        }
+        
+        triggerToast(`🎉 Atividade encerrada formalmente! Expedidos ${successfullySent} certificados com sucesso.`, 'success');
+      } else {
+        triggerToast(`🎉 Atividade encerrada com sucesso! Não foram encontrados check-ins confirmados para emitir certificados.`, 'success');
+      }
+      
+      await syncBackendData();
+    } catch (err: any) {
+      triggerToast(err.message || 'Erro ao encerrar atividade académica.', 'error');
     }
   };
 
@@ -1752,15 +1792,24 @@ export default function App() {
                     </div>
 
                     {activeTicket.checked_in ? (
-                      <div className="flex flex-col sm:flex-row gap-2.5 items-center justify-between p-3.5 bg-[#dfac34]/10 border border-[#dfac34]/25 text-[#dfac34] rounded-xl text-xs font-semibold">
-                        <span className="leading-snug">Check-In Efetuado! Já pode descarregar a sua Certidão de Créditos SAGEO.</span>
-                        <button
-                          onClick={() => setViewingCertificateMatch({ reg: activeTicket, evt: activeTicketEvent })}
-                          className="px-3.5 py-1.5 bg-[#dfac34] hover:bg-[#dfac34]/80 text-[#0a0f1c] font-black rounded-lg text-xs tracking-wide transition-colors shrink-0 whitespace-nowrap cursor-pointer shadow-lg"
-                        >
-                          Emitir Certidão
-                        </button>
-                      </div>
+                      activeTicketEvent?.is_completed ? (
+                        <div className="flex flex-col sm:flex-row gap-2.5 items-center justify-between p-3.5 bg-[#dfac34]/10 border border-[#dfac34]/25 text-[#dfac34] rounded-xl text-xs font-semibold">
+                          <span className="leading-snug">Check-In Efetuado! Esta atividade terminou. Já pode descarregar a sua Certidão de Créditos SAGEO.</span>
+                          <button
+                            onClick={() => setViewingCertificateMatch({ reg: activeTicket, evt: activeTicketEvent })}
+                            className="px-3.5 py-1.5 bg-[#dfac34] hover:bg-[#dfac34]/80 text-[#0a0f1c] font-black rounded-lg text-xs tracking-wide transition-colors shrink-0 whitespace-nowrap cursor-pointer shadow-lg"
+                          >
+                            Emitir Certidão
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="p-3.5 bg-blue-500/10 border border-blue-500/25 text-blue-400 rounded-xl text-xs font-semibold text-left">
+                          <span className="leading-snug flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse inline-block" />
+                            Presença Confirmada! O certificado estará disponível assim que a coordenação encerrar o evento.
+                          </span>
+                        </div>
+                      )
                     ) : (
                       <p className="text-[11px] text-slate-450 italic text-center font-sans font-light">
                         Apresente este QR Code ao staff académico na entrada. Pode salvar em captura de ecrã (print) no telemóvel!
@@ -1914,13 +1963,19 @@ export default function App() {
                                 <span className="text-[10px] font-mono text-slate-400">Aluno: {reg.first_name} {reg.last_name}</span>
                                 
                                 {reg.checked_in ? (
-                                  <button
-                                    onClick={() => setViewingCertificateMatch({ reg, evt: targetEvent })}
-                                    className="px-3.5 py-1.5 bg-[#dfac34] hover:bg-[#dfac34]/85 text-[#0a0f1c] font-black rounded-lg text-xs transition-all flex items-center gap-1 cursor-pointer gold-glow"
-                                  >
-                                    <Award className="w-3.5 h-3.5 text-slate-950" />
-                                    <span>Emitir Certidão</span>
-                                  </button>
+                                  targetEvent.is_completed ? (
+                                    <button
+                                      onClick={() => setViewingCertificateMatch({ reg, evt: targetEvent })}
+                                      className="px-3.5 py-1.5 bg-[#dfac34] hover:bg-[#dfac34]/85 text-[#0a0f1c] font-black rounded-lg text-xs transition-all flex items-center gap-1 cursor-pointer gold-glow"
+                                    >
+                                      <Award className="w-3.5 h-3.5 text-slate-950" />
+                                      <span>Emitir Certidão</span>
+                                    </button>
+                                  ) : (
+                                    <span className="text-[11px] text-blue-400 font-semibold bg-blue-500/5 border border-blue-500/15 px-2.5 py-1 rounded-lg">
+                                      ⏳ Disponível após conclusão
+                                    </span>
+                                  )
                                 ) : (
                                   <div className="flex flex-col sm:flex-row gap-2 items-end sm:items-center">
                                     <span className="text-[10px] text-slate-500 italic">Requer check-in da equipa</span>
@@ -4531,7 +4586,8 @@ export default function App() {
                               <th className="py-2.5 px-3">Nome / Local</th>
                               <th className="py-2.5 px-3">Data & Hora</th>
                               <th className="py-2.5 px-3 text-center">Capacidade</th>
-                              <th className="py-2.5 px-3 text-center">Inscrições Ativas?</th>
+                              <th className="py-2.5 px-3 text-center">Inscrições?</th>
+                              <th className="py-2.5 px-3 text-center">Estado / Fluxo Certificados</th>
                               <th className="py-2.5 px-3 text-right">Ação</th>
                             </tr>
                           </thead>
@@ -4557,8 +4613,51 @@ export default function App() {
                                       : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
                                     }`}
                                   >
-                                    {e.is_open ? 'ABERTO - Clique p/ Fechar' : 'FECHADO - Clique p/ Abrir'}
+                                    {e.is_open ? 'ABERTO' : 'FECHADO'}
                                   </button>
+                                </td>
+                                <td className="py-3 px-3 text-center">
+                                  {e.is_completed ? (
+                                    <div className="flex flex-col items-center justify-center gap-1">
+                                      <span className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-extrabold border border-emerald-500/30 rounded-md uppercase font-mono tracking-wider">
+                                        ✓ Concluído & Enviado
+                                      </span>
+                                      <button
+                                        onClick={async () => {
+                                          const presentRegs = registrations.filter(r => r.event_id === e.id && r.checked_in);
+                                          if (confirm(`Deseja reenviar os certificados por email para todos os estudantes presentes (${presentRegs.length} alunos) neste evento?`)) {
+                                            triggerToast(`Expedindo certificados... Por favor, aguarde.`, 'info');
+                                            let sentCount = 0;
+                                            for (const reg of presentRegs) {
+                                              await autoGenerateAndSendCertificate(reg, e);
+                                              sentCount++;
+                                            }
+                                            triggerToast(`Reenviados ${sentCount} certificados com sucesso!`, 'success');
+                                          }
+                                        }}
+                                        className="text-[9px] text-[#dfac34] hover:underline font-bold tracking-wide cursor-pointer font-mono"
+                                      >
+                                        Reenviar em Lote
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col items-center justify-center gap-1.5">
+                                      <span className="px-2.5 py-0.5 bg-blue-500/10 text-blue-400 text-[9px] font-extrabold border border-blue-500/30 rounded-md uppercase font-mono tracking-wider">
+                                        ⏳ Decorrer
+                                      </span>
+                                      <button
+                                        onClick={async () => {
+                                          const presentCount = registrations.filter(r => r.event_id === e.id && r.checked_in).length;
+                                          if (confirm(`Atenção: Ao concluir esta atividade, as inscrições e check-ins serão fechados definitivamente, e o sistema enviará automaticamente os certificados por e-mail para todos os estudantes com presença confirmada (${presentCount} estudantes).\n\nDeseja prosseguir com o encerramento do evento "${e.title}"?`)) {
+                                            await handleCompleteEvent(e);
+                                          }
+                                        }}
+                                        className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 text-[10px] font-black rounded-lg transition-colors cursor-pointer"
+                                      >
+                                        Concluir Evento
+                                      </button>
+                                    </div>
+                                  )}
                                 </td>
                                 <td className="py-3 px-3 text-right">
                                   <button
