@@ -13,6 +13,7 @@ export interface Event {
   lecturer?: string;
   course?: string;
   is_completed?: boolean;
+  registration_deadline?: string; // YYYY-MM-DDTHH:MM or YYYY-MM-DD
   report?: {
     summary: string;
     highlights: string[];

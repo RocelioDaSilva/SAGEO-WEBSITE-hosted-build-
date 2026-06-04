@@ -86,6 +86,15 @@ export const EventRegistrationPage: React.FC<EventRegistrationPageProps> = ({
   const effectiveCapacity = isGeosciences ? (matchedEvent.capacity + 150) : matchedEvent.capacity;
   const isFull = confirmedCount >= effectiveCapacity;
 
+  const isDeadlinePassed = (() => {
+    if (!matchedEvent.registration_deadline) return false;
+    const deadlineDate = new Date(matchedEvent.registration_deadline);
+    if (matchedEvent.registration_deadline.length === 10) {
+      deadlineDate.setHours(23, 59, 59, 999);
+    }
+    return Date.now() > deadlineDate.getTime();
+  })();
+
   // Real-time dynamic conflicts for current inputs
   const studentNumTrimmed = formData.studentNumber.trim();
   const studentEmailTrimmed = formData.institutionalEmail.trim();
@@ -373,6 +382,37 @@ export const EventRegistrationPage: React.FC<EventRegistrationPageProps> = ({
                   {hasDoubleReg ? 'Já Inscrito' : 'Registar na Lista de Espera 📋'}
                 </button>
               </form>
+            </div>
+          ) : isDeadlinePassed ? (
+            /* REGISTRATION DEADLINE PASSED ALERT */
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4 animate-fade-in text-slate-200">
+              <div className="flex justify-between items-start border-b border-slate-800/60 pb-3">
+                <div>
+                  <span className="text-[10px] font-mono text-rose-450 font-bold uppercase tracking-wider flex items-center gap-1.5 bg-rose-550/10 border border-rose-500/20 px-2.5 py-0.5 rounded-full inline-flex self-start">
+                    <Clock className="w-3.5 h-3.5 text-rose-400 animate-pulse" /> Inscrições Encerradas
+                  </span>
+                  <h4 className="text-sm font-bold text-white mt-2.5 font-serif">
+                    {matchedEvent.title}
+                  </h4>
+                </div>
+              </div>
+
+              <div className="p-4 bg-rose-500/5 border border-rose-550/10 rounded-2xl space-y-1.5 text-slate-300 text-xs">
+                <p className="font-bold uppercase tracking-wider text-rose-400 text-[10px] font-mono flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-rose-400" /> Prazo de Inscrição Excedido
+                </p>
+                <p className="leading-relaxed font-sans font-light">
+                  Lamentamos, mas o prazo limite estipulado pela coordenação científica para inscrição nesta atividade expirou em:
+                </p>
+                <div className="p-2.5 bg-slate-950 rounded-xl text-center font-mono font-bold text-[#dfac34] text-xs mt-1 border border-slate-900 shadow-inner">
+                  {new Date(matchedEvent.registration_deadline).toLocaleString('pt', {
+                    day: 'numeric',
+                    month: 'long',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </div>
+              </div>
             </div>
           ) : (
             /* STANDARD COMPREHENSIVE TICKET FORM */

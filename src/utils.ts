@@ -144,7 +144,10 @@ export const fetchEvents = async (): Promise<Event[]> => {
 
 export const fetchRegistrations = async (): Promise<Registration[]> => {
   try {
-    const res = await fetch("/api/registrations");
+    const passcode = localStorage.getItem("sageo_temp_passcode") || "";
+    const res = await fetch("/api/registrations", {
+      headers: passcode ? { "x-sageo-passcode": passcode } : {}
+    });
     if (!res.ok) throw new Error();
     const data = await res.json();
     saveStoredRegistrations(data);
@@ -183,7 +186,10 @@ export const fetchGallery = async (): Promise<GalleryPost[]> => {
 
 export const fetchAdminGallery = async (): Promise<GalleryPost[]> => {
   try {
-    const res = await fetch("/api/admin/gallery");
+    const passcode = localStorage.getItem("sageo_temp_passcode") || "";
+    const res = await fetch("/api/admin/gallery", {
+      headers: passcode ? { "x-sageo-passcode": passcode } : {}
+    });
     if (!res.ok) throw new Error();
     return await res.json();
   } catch (err) {
@@ -194,9 +200,13 @@ export const fetchAdminGallery = async (): Promise<GalleryPost[]> => {
 
 export const approveGalleryPost = async (id: string): Promise<boolean> => {
   try {
+    const passcode = localStorage.getItem("sageo_temp_passcode") || "";
     const res = await fetch("/api/admin/gallery/approve", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+         ...(passcode ? { "x-sageo-passcode": passcode } : {})
+      },
       body: JSON.stringify({ id })
     });
     return res.ok;
@@ -207,9 +217,13 @@ export const approveGalleryPost = async (id: string): Promise<boolean> => {
 
 export const rejectGalleryPost = async (id: string): Promise<boolean> => {
   try {
+    const passcode = localStorage.getItem("sageo_temp_passcode") || "";
     const res = await fetch("/api/admin/gallery/reject", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+         ...(passcode ? { "x-sageo-passcode": passcode } : {})
+      },
       body: JSON.stringify({ id })
     });
     return res.ok;
@@ -528,9 +542,13 @@ export const checkInStudent = async (payload: {
   bypassSecretQuestion?: boolean;
 }): Promise<{ success: boolean; registration: Registration }> => {
   try {
+    const passcode = localStorage.getItem("sageo_temp_passcode") || "";
     const res = await fetch("/api/check-in", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+         ...(passcode ? { "x-sageo-passcode": passcode } : {})
+      },
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
@@ -582,7 +600,10 @@ export const fetchDashboardStats = async (): Promise<{
   recentLogs: Array<{ id: string; timestamp: string; action: string; details: string; status: string }>;
 }> => {
   try {
-    const res = await fetch("/api/dashboard-stats");
+    const passcode = localStorage.getItem("sageo_temp_passcode") || "";
+    const res = await fetch("/api/dashboard-stats", {
+      headers: passcode ? { "x-sageo-passcode": passcode } : {}
+    });
     if (!res.ok) throw new Error();
     return res.json();
   } catch (err) {
@@ -675,9 +696,13 @@ export const addGalleryPostServer = async (payload: {
 
 export const addEventServer = async (payload: Partial<Event>): Promise<Event> => {
   try {
+    const passcode = localStorage.getItem("sageo_temp_passcode") || "";
     const res = await fetch("/api/events", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+         ...(passcode ? { "x-sageo-passcode": passcode } : {})
+      },
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
@@ -715,8 +740,10 @@ export const addEventServer = async (payload: Partial<Event>): Promise<Event> =>
 
 export const deleteEventServer = async (id: string): Promise<boolean> => {
   try {
+    const passcode = localStorage.getItem("sageo_temp_passcode") || "";
     const res = await fetch(`/api/events/${id}`, {
-      method: "DELETE"
+      method: "DELETE",
+      headers: passcode ? { "x-sageo-passcode": passcode } : {}
     });
     if (!res.ok) {
       if (res.status === 404) throw new Error("Fallback static environment");
@@ -740,7 +767,10 @@ export const resetServerDB = async (passcode: string): Promise<boolean> => {
   try {
     const res = await fetch("/api/admin/reset", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "x-sageo-passcode": passcode
+      },
       body: JSON.stringify({ passcode })
     });
     if (!res.ok) {

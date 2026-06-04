@@ -29,9 +29,160 @@ export default function SageoPhoneCompanion({
   const [activeTab, setActiveTab] = useState<'notifications' | 'dashboard' | 'widgets' | 'pwa_guide'>('notifications');
   const [notifs, setNotifs] = useState<NotificationItem[]>([]);
   const [hasSound, setHasSound] = useState(true);
+
+  // Local state for our Offline Alarm Simulation Engine
+  const [simMinutes, setSimMinutes] = useState<number>(440); // default to 07:20 AM
+  const [prevSimMinutes, setPrevSimMinutes] = useState<number>(440);
+  const [isClockRunning, setIsClockRunning] = useState<boolean>(false);
+  const [studentInputNo, setStudentInputNo] = useState<string>(activeStudentNum || '');
+  const [firedTriggerIds, setFiredTriggerIds] = useState<Set<string>>(new Set());
+  
+  const formatMinutesToTime = (mins: number): string => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  };
   
   // Real native notification permission status
   const [notifPermission, setNotifPermission] = useState<string>('default');
+
+  interface OfflineTrigger {
+    id: string;
+    time: string;
+    minutesOfDay: number;
+    title: string;
+    body: string;
+    type: 'agenda' | 'confirmation' | 'checkin' | 'alert';
+    relativeLabel: string;
+    eventTitle?: string;
+  }
+
+  const getPlannedOfflineTriggers = (studentNo: string): OfflineTrigger[] => {
+    if (!studentNo) return [];
+    const regs = propRegistrations.length > 0 ? propRegistrations : getStoredRegistrations();
+    const evts = propEvents.length > 0 ? propEvents : getStoredEvents();
+    
+    const studentRegs = regs.filter(
+      r => r.student_number.trim() === studentNo.trim() && r.confirmed
+    );
+    
+    const triggers: OfflineTrigger[] = [];
+    
+    // 1. Morning notification (at 08:00h = 480 mins)
+    if (studentRegs.length > 0) {
+      const scheduledTitles = studentRegs.map((r, idx) => {
+        const evt = evts.find(e => e.id === r.event_id);
+        return evt ? `[${evt.start_time}h] ${evt.title}` : '';
+      }).filter(Boolean).join(', ');
+
+      triggers.push({
+        id: `morning-0800`,
+        time: "08:00",
+        minutesOfDay: 8 * 60,
+        title: "🌅 Início do Dia SAGEO: O Teu Horário!",
+        body: `Bom dia! 📅 Hoje tens as seguintes atividades SAGEO marcadas:\n${scheduledTitles}\nProcedimento: Apresenta o teu bilhete QR offline à entrada das salas correspondentes.`,
+        type: 'agenda',
+        relativeLabel: "Início do Dia",
+        eventTitle: "Todos os Eventos"
+      });
+    }
+
+    // 2. Event-specific notifications (1h30m, 1h, 30m, 15m, 5m, and on the hour)
+    for (const reg of studentRegs) {
+      const evt = evts.find(e => e.id === reg.event_id);
+      if (!evt) continue;
+      
+      const [h, m] = evt.start_time.split(':').map(Number);
+      const eventMins = h * 60 + m;
+      
+      const offsets = [
+        { mins: 90, label: "1h30min antes", body: `Falta 1h30min para se iniciar a atividade "${evt.title}". Procedimento: Reúne o teu material e desloca-te calmamente para o local: ${evt.location}.` },
+        { mins: 60, label: "1h antes", body: `Faltam 1h! Atividade: "${evt.title}". Orador: ${evt.lecturer || 'Convidado'} no local ${evt.location}. Procedimento: Certifica-te que tens bateria no telemóvel para preparar o acesso.` },
+        { mins: 30, label: "30min antes", body: `Faltam 30m para começar! Local: ${evt.location}. Procedimento: Dirige-te ao pavilhão de check-in. O staff académico já começou a organizar as filas físicas.` },
+        { mins: 15, label: "15min antes", body: `Faltam 15m! "${evt.title}" em ${evt.location}. Procedimento: Abre o teu QR Code de acesso ativado. As portas já estão abertas e a equipa de check-in está a validar presenças.` },
+        { mins: 5, label: "5min antes", body: `Início em 5 minutos! Sala: ${evt.location}. Procedimento: Tem o bilhete QR aberto no ecrã. O leitor ótico está ativo e os lugares livres estão a ser preenchidos.` },
+        { mins: 0, label: "Na hora", body: `Atividade Iniciada! "${evt.title}" no local ${evt.location} orientada por ${evt.lecturer || 'Orador'}. Procedimento: Silencia o teu telemóvel e disfruta desta excelente sessão académica!` }
+      ];
+      
+      for (const offset of offsets) {
+        const triggerMins = eventMins - offset.mins;
+        if (triggerMins < 0) continue; // safety guard
+        
+        const triggerH = Math.floor(triggerMins / 60);
+        const triggerM = triggerMins % 60;
+        const timeStr = `${triggerH.toString().padStart(2, '0')}:${triggerM.toString().padStart(2, '0')}`;
+        
+        triggers.push({
+          id: `trig-${reg.id}-${offset.mins}`,
+          time: timeStr,
+          minutesOfDay: triggerMins,
+          title: `⏳ Lembrete SAGEO: ${offset.label}`,
+          body: `${offset.body} (Tempo Local: ${evt.start_time}h | Localização: ${evt.location})`,
+          type: 'alert',
+          relativeLabel: offset.label,
+          eventTitle: evt.title
+        });
+      }
+    }
+    
+    return triggers.sort((a, b) => a.minutesOfDay - b.minutesOfDay);
+  };
+
+  // Sync activeStudentNum with studentInputNo
+  useEffect(() => {
+    if (activeStudentNum) {
+      setStudentInputNo(activeStudentNum);
+    }
+  }, [activeStudentNum]);
+
+  // Simulated Clock Tick Effects
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isClockRunning) {
+      interval = setInterval(() => {
+        setSimMinutes(prev => {
+          if (prev >= 1440) { // end of day 24h
+            setIsClockRunning(false);
+            return prev;
+          }
+          return prev + 1; // tick 1 minute every 400ms for simulated movement
+        });
+      }, 400);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isClockRunning]);
+
+  // Monitor crossed triggers and trigger push notifications
+  useEffect(() => {
+    if (simMinutes === prevSimMinutes) return;
+
+    const triggers = getPlannedOfflineTriggers(studentInputNo);
+    const newFired = new Set(firedTriggerIds);
+    let changed = false;
+
+    for (const t of triggers) {
+      if (!newFired.has(t.id) && t.minutesOfDay > prevSimMinutes && t.minutesOfDay <= simMinutes) {
+        newFired.add(t.id);
+        changed = true;
+
+        triggerPush({
+          id: `sim-fired-${t.id}-${Date.now()}`,
+          title: t.title,
+          body: t.body,
+          time: t.time,
+          type: t.type
+        });
+      }
+    }
+
+    if (changed) {
+      setFiredTriggerIds(newFired);
+    }
+
+    setPrevSimMinutes(simMinutes);
+  }, [simMinutes, prevSimMinutes, studentInputNo, firedTriggerIds]);
 
   // Local state for registrations & events to detect changes
   const [prevRegCount, setPrevRegCount] = useState(0);
@@ -392,7 +543,7 @@ export default function SageoPhoneCompanion({
                   : 'border-transparent text-slate-400 hover:text-slate-200'
                 }`}
               >
-                🌅 Alarmes
+                ⏰ Lembretes
               </button>
               <button
                 onClick={() => setActiveTab('widgets')}
@@ -496,59 +647,216 @@ export default function SageoPhoneCompanion({
                   </div>
                 )}
 
-                {/* TAB 2: MORNING SIMULATOR (INÍCIO DO DIA) */}
+                {/* TAB 2: MORNING SIMULATOR & OFFLINE REMINDERS */}
                 {activeTab === 'dashboard' && (
                   <div className="space-y-4 text-left">
-                    <div className="p-3.5 bg-[#dfac34]/10 border border-[#dfac34]/25 rounded-2xl flex items-start gap-2.5">
-                      <Sparkles className="w-5 h-5 text-[#dfac34] shrink-0 mt-0.5 animate-pulse" />
+                    <div className="p-3 bg-[#dfac34]/10 border border-[#dfac34]/25 rounded-2xl flex items-start gap-2">
+                      <Sparkles className="w-4 h-4 text-[#dfac34] shrink-0 mt-0.5 animate-pulse" />
                       <div>
-                        <h4 className="text-xs font-bold text-[#dfac34] uppercase tracking-wide">Filtros Anti-Esquecimento ☀️</h4>
-                        <p className="text-[10px] text-slate-300 mt-1 leading-relaxed font-sans font-light">
-                          Simula o início do dia do estudante. O sistema dispara um sumário completo de atividades para o visor do telemóvel!
+                        <h4 className="text-[11px] font-bold text-[#dfac34] uppercase tracking-wide">Notificações Inteligentes Local-Offline 📲</h4>
+                        <p className="text-[9px] text-slate-300 mt-0.5 leading-relaxed font-sans font-light">
+                          Os lembretes são descarregados para o telemóvel ao início do dia. Funcionam mesmo <strong>sem internet</strong> para assegurar zero atrasos!
                         </p>
                       </div>
                     </div>
 
-                    <div className="p-4 bg-slate-950/80 border border-slate-900 rounded-2xl space-y-4">
-                      <h4 className="text-[11px] font-mono font-bold tracking-wider text-slate-400 uppercase">Estudante Alvo</h4>
-                      
-                      {activeStudentNum ? (
-                        <div className="p-3 bg-[#dfac34]/5 border border-[#dfac34]/15 rounded-xl flex justify-between items-center">
-                          <div>
-                            <span className="text-[9px] uppercase font-mono tracking-widest text-[#dfac34] block">Sessão Ativa Detetada</span>
-                            <span className="text-xs text-white font-mono font-bold tracking-wider">Matrícula: #{activeStudentNum}</span>
-                          </div>
-                          <span className="h-2 w-2 rounded-full bg-emerald-400" title="Perfil Ativo" />
-                        </div>
-                      ) : (
-                        <div className="p-3 bg-red-950/10 border border-red-500/10 rounded-xl text-center">
-                          <p className="text-[10px] text-slate-400">Nenhum estudante ativo no Portal. Introduz ou digita a tua matrícula abaixo.</p>
-                        </div>
-                      )}
+                    {/* SAGEO ALARM CLOCK SIMULATOR WIDGET */}
+                    <div className="p-3.5 bg-slate-950/90 border border-slate-900 rounded-2xl space-y-3 font-sans">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-mono font-bold tracking-wider text-slate-400 uppercase">Simulador de Relógio SAGEO</span>
+                        <span className="text-[9px] text-[#dfac34] font-mono font-bold uppercase animate-pulse">Offline Ativado</span>
+                      </div>
 
-                      <div className="space-y-2">
-                        <label className="text-[9px] uppercase font-mono font-bold tracking-wider text-slate-500 block">Número de Matrícula (8 Digitos)</label>
+                      {/* Display Clock */}
+                      <div className="py-2.5 bg-slate-900/60 border border-slate-850 rounded-xl text-center flex flex-col items-center justify-center relative">
+                        <div className="absolute top-1 right-2 flex items-center gap-1">
+                          <span className={`h-1.5 w-1.5 rounded-full ${isClockRunning ? 'bg-emerald-500 animate-ping' : 'bg-rose-500'}`} />
+                          <span className="text-[8px] font-mono font-bold text-slate-500">{isClockRunning ? 'A CORRER' : 'PARADO'}</span>
+                        </div>
+                        <span className="text-2xl font-mono tracking-widest font-black text-white glow-amber">
+                          {formatMinutesToTime(simMinutes)}
+                        </span>
+                        <span className="text-[8px] uppercase tracking-widest font-mono text-slate-500 mt-1">Hora Simetrizada Local</span>
+                      </div>
+
+                      {/* Timeline Slider */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[8px] font-mono text-slate-500">
+                          <span>07:00 AM</span>
+                          <span>11:00 AM</span>
+                          <span>14:00 PM</span>
+                        </div>
                         <input 
-                          type="text"
-                          maxLength={8}
-                          placeholder="Ex: 20220001"
-                          defaultValue={activeStudentNum}
-                          id="morning-student-input"
-                          className="w-full bg-slate-950 border border-slate-850 rounded-xl px-3 py-2 text-xs text-slate-200 uppercase outline-none focus:border-[#dfac34] font-mono"
+                          type="range"
+                          min={420} // 07:00 AM
+                          max={840} // 14:00 PM
+                          value={simMinutes}
+                          onChange={(e) => {
+                            const newMins = Number(e.target.value);
+                            setPrevSimMinutes(simMinutes);
+                            setSimMinutes(newMins);
+                          }}
+                          className="w-full h-1 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-[#dfac34]"
                         />
                       </div>
 
-                      <button
-                        onClick={() => {
-                          const el = document.getElementById('morning-student-input') as HTMLInputElement;
-                          const studentNo = el ? el.value.trim() : activeStudentNum;
-                          handleSimulateMorningSchedule(studentNo);
-                        }}
-                        className="w-full py-3 bg-[#dfac34] hover:bg-amber-500 text-slate-950 font-black text-xs uppercase tracking-widest rounded-xl transition-all duration-300 shadow-md flex items-center justify-center gap-1.5 cursor-pointer hover:-translate-y-0.5"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        <span>Simular Início do Dia 🌅</span>
-                      </button>
+                      {/* Time Controls */}
+                      <div className="grid grid-cols-4 gap-1.5">
+                        <button
+                          onClick={() => {
+                            setPrevSimMinutes(simMinutes);
+                            setSimMinutes(prev => Math.max(420, prev - 15));
+                          }}
+                          className="py-1 px-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 text-[9px] font-mono rounded-lg transition-transform active:scale-95 cursor-pointer text-center"
+                        >
+                          -15m
+                        </button>
+                        <button
+                          onClick={() => setIsClockRunning(!isClockRunning)}
+                          className={`py-1 px-1.5 text-slate-950 text-[9px] font-mono font-bold rounded-lg transition-transform active:scale-95 cursor-pointer text-center ${
+                            isClockRunning ? 'bg-rose-500 text-white' : 'bg-[#dfac34]'
+                          }`}
+                        >
+                          {isClockRunning ? 'Pausar' : 'Iniciar'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPrevSimMinutes(simMinutes);
+                            setSimMinutes(prev => Math.min(840, prev + 15));
+                          }}
+                          className="py-1 px-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 text-[9px] font-mono rounded-lg transition-transform active:scale-95 cursor-pointer text-center"
+                        >
+                          +15m
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsClockRunning(false);
+                            setSimMinutes(440);
+                            setPrevSimMinutes(440);
+                            setFiredTriggerIds(new Set());
+                            triggerPush({
+                              id: `reset-${Date.now()}`,
+                              title: '🔄 Simulador Reiniciado',
+                              body: 'O relógio interno foi reajustado para as 07:20h. Todos os gatilhos de alarmes offline foram limpos para novos testes!',
+                              time: 'Agora',
+                              type: 'alert'
+                            });
+                          }}
+                          className="py-1 px-1.5 bg-slate-950 hover:bg-slate-900 border border-red-950 hover:border-red-500/30 text-rose-450 text-[9px] font-mono rounded-lg transition-transform active:scale-95 cursor-pointer text-center"
+                        >
+                          Clean
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* TARGET STUDENT SELECT & TIMELINE */}
+                    <div className="p-3.5 bg-slate-950/80 border border-slate-900 rounded-2xl space-y-3">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-[10px] font-mono font-bold text-slate-400 tracking-wider uppercase">Estudante Alvo e Agenda</h4>
+                        {studentInputNo && (
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                        )}
+                      </div>
+
+                      <div className="flex gap-2">
+                        <input 
+                          type="text"
+                          maxLength={8}
+                          placeholder="Número Matrícula"
+                          value={studentInputNo}
+                          onChange={(e) => setStudentInputNo(e.target.value)}
+                          id="morning-student-input"
+                          className="flex-1 bg-slate-950 border border-slate-850 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-[#dfac34] font-mono"
+                        />
+                        <button
+                          onClick={() => handleSimulateMorningSchedule(studentInputNo)}
+                          disabled={!studentInputNo}
+                          className="px-3 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-[#dfac34] text-[10px] font-bold uppercase tracking-wider rounded-xl cursor-pointer disabled:opacity-40"
+                          title="Forçar envio de notificação SAGEO para Início do Dia"
+                        >
+                          Disparar 🌅
+                        </button>
+                      </div>
+
+                      {/* RENDER DYNAMIC TIMELINE OF OFFLINE REMINDERS */}
+                      <div className="pt-2">
+                        <h5 className="text-[9px] font-mono font-bold tracking-wider text-slate-500 uppercase border-b border-slate-900 pb-1 mb-2">
+                          Gatilhos Planeados no Telemóvel SAGEO
+                        </h5>
+
+                        {(() => {
+                          const triggers = getPlannedOfflineTriggers(studentInputNo);
+                          if (triggers.length === 0) {
+                            return (
+                              <div className="py-6 text-center text-slate-500 space-y-1.5">
+                                <AlertCircle className="w-5 h-5 mx-auto text-slate-755" />
+                                <p className="text-[10px] max-w-[220px] mx-auto leading-normal">
+                                  Nenhum lembrete planeado. Certifica-te de ter pelo menos uma atividade <strong className="text-[#dfac34]">GARANTIDA</strong> e de digitar a tua matrícula acima.
+                                </p>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="space-y-2 max-h-[190px] overflow-y-auto pr-1">
+                              {triggers.map(t => {
+                                const isFired = firedTriggerIds.has(t.id) || t.minutesOfDay <= simMinutes;
+                                return (
+                                  <div 
+                                    key={t.id}
+                                    className={`p-2.5 rounded-xl border transition-all flex items-start gap-2 relative ${
+                                      isFired 
+                                        ? 'bg-slate-900/40 border-slate-850 text-slate-400 font-sans' 
+                                        : 'bg-slate-950 border-slate-900 text-slate-100 hover:border-[#dfac34]/15 font-sans'
+                                    }`}
+                                  >
+                                    <div className="shrink-0 pt-0.5">
+                                      {t.relativeLabel === 'Início do Dia' ? (
+                                        <Sparkles className={`w-3.5 h-3.5 ${isFired ? 'text-slate-600' : 'text-[#dfac34]'}`} />
+                                      ) : (
+                                        <Clock className={`w-3.5 h-3.5 ${isFired ? 'text-slate-650' : 'text-amber-500 animate-pulse'}`} />
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0 text-[10px]">
+                                      <div className="flex items-center justify-between font-mono text-[8px] mb-0.5">
+                                        <span className={`font-bold ${isFired ? 'text-slate-500' : 'text-[#dfac34]'}`}>
+                                          {t.time}
+                                        </span>
+                                        <span className={`px-1 rounded-[4px] uppercase font-bold tracking-widest text-[7px] ${
+                                          isFired ? 'bg-slate-950 text-slate-650' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10'
+                                        }`}>
+                                          {isFired ? 'VIBRADO' : t.relativeLabel}
+                                        </span>
+                                      </div>
+                                      <h6 className={`font-bold text-[10px] truncate ${isFired ? 'text-slate-500' : 'text-white'}`}>
+                                        {t.eventTitle || 'Atividade'}
+                                      </h6>
+                                      <p className="text-[8px] text-slate-400 leading-relaxed max-w-[200px] line-clamp-2 mt-0.5 whitespace-pre-wrap">
+                                        {t.body}
+                                      </p>
+                                    </div>
+                                    <button
+                                      onClick={() => {
+                                        triggerPush({
+                                          id: `test-button-${t.id}-${Date.now()}`,
+                                          title: t.title,
+                                          body: t.body,
+                                          time: t.time,
+                                          type: t.type
+                                        });
+                                      }}
+                                      className="absolute right-2 bottom-2 p-1 hover:bg-slate-900 bg-slate-950 border border-slate-850 rounded-lg text-[#dfac34]/80 hover:text-amber-400 shrink-0 cursor-pointer"
+                                      title="Testar disparo de banner imediatamente"
+                                    >
+                                      <RefreshCw className="w-2.5 h-2.5" />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </div>
                 )}

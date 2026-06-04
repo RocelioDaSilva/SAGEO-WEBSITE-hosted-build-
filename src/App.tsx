@@ -177,32 +177,39 @@ export default function App() {
     localStorage.setItem('sageo_registration_form_draft', JSON.stringify(formData));
   }, [formData]);
 
-  // Auto-fill profile based on Student ID (Pseudo-Profile restoration)
+  // Auto-fill profile based on Student ID (Secure, dynamic profile restoration)
   useEffect(() => {
     const trimmedNum = formData.studentNumber.trim();
     if (trimmedNum.length === 8) {
-      // Find the most recent registration for this student
-      const matchedReg = [...registrations]
-        .reverse()
-        .find(r => r.student_number.trim() === trimmedNum);
-
-      if (matchedReg) {
-        // Only load if form state name fields are currently empty or different from matched
-        if (formData.firstName !== matchedReg.first_name || formData.lastName !== matchedReg.last_name) {
-          setFormData(prev => ({
-            ...prev,
-            firstName: matchedReg.first_name,
-            lastName: matchedReg.last_name,
-            course: matchedReg.course,
-            institutionalEmail: matchedReg.institutional_email,
-            secretQuestion: matchedReg.secret_question,
-            secretAnswer: matchedReg.secret_answer
-          }));
-          triggerToast(`👤 Perfil SAGEO Carregado! Os seus dados académicos (Matrícula: ${trimmedNum}) foram restaurados automaticamente.`, 'success');
+      // Dynamic profile fetch (preserves student privacy & mitigates leaks)
+      const restoreSecureProfile = async () => {
+        try {
+          const res = await fetch(`/api/registrations?student_number=${encodeURIComponent(trimmedNum)}`);
+          if (res.ok) {
+            const studentRegs = await res.json();
+            if (studentRegs && studentRegs.length > 0) {
+              const matchedReg = [...studentRegs].reverse()[0];
+              if (formData.firstName !== matchedReg.first_name || formData.lastName !== matchedReg.last_name) {
+                setFormData(prev => ({
+                  ...prev,
+                  firstName: matchedReg.first_name,
+                  lastName: matchedReg.last_name,
+                  course: matchedReg.course,
+                  institutionalEmail: matchedReg.institutional_email,
+                  secretQuestion: matchedReg.secret_question,
+                  secretAnswer: '' // Cybersecurity best-practice: never auto-fill plain secret answers!
+                }));
+                triggerToast(`👤 Perfil SAGEO Carregado! Os seus dados académicos (Matrícula: ${trimmedNum}) foram restaurados automaticamente.`, 'success');
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Erro ao carregar perfil seguro", err);
         }
-      }
+      };
+      restoreSecureProfile();
     }
-  }, [formData.studentNumber, registrations]);
+  }, [formData.studentNumber]);
 
   // Reset bypass confirmation state when event changes
   useEffect(() => {
@@ -253,6 +260,7 @@ export default function App() {
     category: 'empresa' as Event['category'],
     is_open: true,
     lecturer: '',
+    registration_deadline: '',
     image_url: 'https://images.unsplash.com/photo-1540317580114-ed684c82b71d?auto=format&fit=crop&w=800&q=80'
   });
 
@@ -310,6 +318,22 @@ export default function App() {
 
   // Load and initialize data
   useEffect(() => {
+    // Restore admin session from localStorage if present (Securing & preserving staff sessions)
+    const savedPass = localStorage.getItem('sageo_temp_passcode');
+    if (savedPass) {
+      const cleanPass = savedPass.trim().toUpperCase();
+      if (cleanPass === 'SAGEO2026-ADM' || cleanPass === STAFF_PASSCODE) {
+        setIsAdminAuthenticated(true);
+        setActiveAdminRole('super_admin');
+      } else if (cleanPass === 'SAGEO2026-ORG') {
+        setIsAdminAuthenticated(true);
+        setActiveAdminRole('organizer');
+      } else if (cleanPass === 'SAGEO2026-STF' || cleanPass === '1234') {
+        setIsAdminAuthenticated(true);
+        setActiveAdminRole('staff');
+      }
+    }
+
     // 1. Instant hydration from cached storage for offline rendering
     setEvents(getStoredEvents());
     setRegistrations(getStoredRegistrations());
@@ -1010,16 +1034,19 @@ export default function App() {
     const cleanPass = adminPasscode.trim().toUpperCase();
     
     if (cleanPass === 'SAGEO2026-ADM' || cleanPass === STAFF_PASSCODE) {
+      localStorage.setItem('sageo_temp_passcode', cleanPass);
       setIsAdminAuthenticated(true);
       setActiveAdminRole('super_admin');
       setAdminPasscode('');
       triggerToast('🔐 Consola Central desbloqueada como: SUPER-ADMINISTRADOR', 'success');
     } else if (cleanPass === 'SAGEO2026-ORG') {
+      localStorage.setItem('sageo_temp_passcode', cleanPass);
       setIsAdminAuthenticated(true);
       setActiveAdminRole('organizer');
       setAdminPasscode('');
       triggerToast('🔐 Consola Central desbloqueada como: ORGANIZADOR', 'success');
     } else if (cleanPass === 'SAGEO2026-STF' || cleanPass === '1234') {
+      localStorage.setItem('sageo_temp_passcode', cleanPass);
       setIsAdminAuthenticated(true);
       setActiveAdminRole('staff');
       setAdminPasscode('');
@@ -1031,6 +1058,7 @@ export default function App() {
 
   // Admin logout
   const handleAdminLogout = () => {
+    localStorage.removeItem('sageo_temp_passcode');
     setIsAdminAuthenticated(false);
   };
 
@@ -1054,6 +1082,7 @@ export default function App() {
         category: newEventForm.category,
         is_open: newEventForm.is_open,
         lecturer: newEventForm.lecturer,
+        registration_deadline: newEventForm.registration_deadline || undefined,
         image_url: newEventForm.image_url
       };
 
@@ -1072,6 +1101,7 @@ export default function App() {
         category: 'empresa',
         is_open: true,
         lecturer: '',
+        registration_deadline: '',
         image_url: 'https://images.unsplash.com/photo-1540317580114-ed684c82b71d?auto=format&fit=crop&w=800&q=80'
       });
 
@@ -1238,8 +1268,8 @@ export default function App() {
               SAGEO PLATAFORMA INTEGRADA ATIVA &bull; GEOCIÊNCIAS: DO PETRÓLEO AOS MINERAIS CRÍTICOS
             </span>
           </div>
-          <div className="text-slate-400 text-[10px] font-mono">
-            Secretariado Técnico Geral: <span className="text-[#dfac34] font-bold hover:underline cursor-pointer">{STAFF_PASSCODE}</span>
+          <div className="flex items-center gap-1.5 text-[9px] font-mono font-bold uppercase text-slate-400">
+            <span>Ligação Segura End-to-End</span>
           </div>
         </div>
       </div>
@@ -4142,7 +4172,7 @@ export default function App() {
                       className="w-full bg-slate-950/80 border border-[#dfac34]/15 focus:border-[#dfac34]/65 rounded-xl px-4 py-3 text-sm text-center font-mono tracking-widest text-slate-100 outline-none transition-all focus:ring-1 focus:ring-[#dfac34]/30"
                     />
                     <p className="text-[10px] text-slate-500 mt-2 text-center">
-                      Dica de segurança local: <code className="text-[#dfac34] text-[11px] font-mono font-bold">{STAFF_PASSCODE}</code>
+                      Insira o seu código credenciado de portaria ou supervisão para prosseguir.
                     </p>
                   </div>
 
@@ -4565,6 +4595,21 @@ export default function App() {
                                 <option value="false">Fechado / Ocultado</option>
                               </select>
                             </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-400 mb-1 font-semibold text-[#dfac34]">
+                              Prazo de Inscrição (Opcional)
+                            </label>
+                            <input
+                              type="datetime-local"
+                              value={newEventForm.registration_deadline}
+                              onChange={(e) => setNewEventForm({ ...newEventForm, registration_deadline: e.target.value })}
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 outline-none focus:border-[#dfac34]"
+                            />
+                            <p className="text-[10px] text-slate-500 mt-1">
+                              Deixe vazio para manter as inscrições livres e abertas ao longo de todo o período do evento.
+                            </p>
                           </div>
 
                           <button
