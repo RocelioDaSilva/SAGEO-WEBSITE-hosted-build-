@@ -38,7 +38,8 @@ import {
   X,
   KeyRound,
   BarChart3,
-  Camera
+  Camera,
+  History
 } from 'lucide-react';
 
 import { Event, Registration, GalleryPost, WaitlistEntry, Contributor, Exhibition, BrainstormingIdea, ThematicAxis } from './types';
@@ -81,6 +82,20 @@ import ScannerSimulator from './components/ScannerSimulator';
 import CertificateGenerator from './components/CertificateGenerator';
 import OrganizerDashboard from './components/OrganizerDashboard';
 import SageoPhoneCompanion from './components/SageoPhoneCompanion';
+
+// Helper function to optimize Unsplash images
+function getOptimizedImageUrl(url: string | undefined, width: number, quality: number = 75): string {
+  if (!url) return '';
+  if (url.includes('images.unsplash.com')) {
+    try {
+      const baseUrl = url.split('?')[0];
+      return `${baseUrl}?auto=format&fit=crop&w=${width}&q=${quality}`;
+    } catch (e) {
+      return url;
+    }
+  }
+  return url;
+}
 
 export default function App() {
   // Global States synced with LocalStorage
@@ -1253,7 +1268,7 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-midnight-radial font-sans selection:bg-[#dfac34] selection:text-slate-950 text-slate-100 pb-20 relative">
+    <div className="min-h-screen bg-midnight-radial font-sans selection:bg-[#dfac34] selection:text-slate-950 text-slate-100 pb-20 relative overflow-x-hidden">
       
       {/* Visual background decorations for high fidelity design */}
       <div className="absolute top-0 left-1/4 -translate-x-1/2 w-[700px] h-[700px] bg-blue-600/5 rounded-full blur-[160px] pointer-events-none" />
@@ -1284,10 +1299,10 @@ export default function App() {
               <Compass className="w-5 h-5 stroke-[2]" />
             </div>
             <div>
-              <span className="editorial-serif font-black text-2xl tracking-tight text-white group-hover:text-[#dfac34] duration-200">
+              <span className="editorial-serif font-black text-xl sm:text-2xl tracking-tight text-white group-hover:text-[#dfac34] duration-200">
                 SAGEO <span className="text-[#dfac34]">2026</span>
               </span>
-              <p className="text-[8px] text-[#dfac34] font-mono tracking-widest mt-0.5 uppercase font-bold">Semana de Geociências &bull; ISPTEC</p>
+              <p className="text-[7.5px] sm:text-[8px] text-[#dfac34] font-mono tracking-widest mt-0.5 uppercase font-bold">Semana de Geociências &bull; ISPTEC</p>
             </div>
           </button>
 
@@ -1336,16 +1351,16 @@ export default function App() {
           </nav>
 
           {/* Mobile responsive Quick Trigger */}
-          <div className="md:hidden flex items-center gap-2">
+          <div className="xl:hidden flex items-center gap-2">
             <button
               onClick={() => setActiveTab(activeTab === 'admin' ? 'home' : 'admin')}
-              className="p-2.5 rounded-xl border border-slate-800/80 bg-slate-950/80 text-slate-300 hover:text-[#dfac34] backdrop-blur-md"
+              className="p-2.5 rounded-xl border border-slate-800/80 bg-slate-950/80 text-slate-300 hover:text-[#dfac34] backdrop-blur-md cursor-pointer"
             >
               <Sliders className="w-4 h-4" />
             </button>
             <button 
               onClick={() => setActiveTab('cronograma')}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#dfac34] to-yellow-600 hover:from-amber-500 hover:to-semibold text-slate-950 font-bold text-xs shadow-lg"
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#dfac34] to-yellow-600 hover:from-amber-500 hover:to-semibold text-slate-950 font-bold text-xs shadow-lg cursor-pointer"
             >
               Agenda
             </button>
@@ -2071,8 +2086,9 @@ export default function App() {
                       {/* Event Banner */}
                       <div className="h-44 overflow-hidden relative">
                         <img 
-                          src={event.image_url || "https://images.unsplash.com/photo-1540317580114-ed684c82b71d?auto=format&fit=crop&w=800&q=80"} 
+                          src={getOptimizedImageUrl(event.image_url || "https://images.unsplash.com/photo-1540317580114-ed684c82b71d", 600)} 
                           alt={event.title}
+                          loading="lazy"
                           className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                         />
                         <div className="absolute top-3 left-3">
@@ -2989,14 +3005,15 @@ export default function App() {
                                                 const modal = document.createElement('div');
                                                 modal.className = "fixed inset-0 bg-slate-950/95 flex items-center justify-center p-4 z-50 animate-fade-in";
                                                 modal.onclick = () => document.body.removeChild(modal);
-                                                modal.innerHTML = `<img src="${photo}" class="max-h-[85vh] max-w-full rounded-2xl border border-slate-800 shadow-2xl object-cover animate-scale-up" referrerPolicy="no-referrer" />`;
+                                                modal.innerHTML = `<img src="${getOptimizedImageUrl(photo, 1200)}" class="max-h-[85vh] max-w-full rounded-2xl border border-slate-800 shadow-2xl object-cover animate-scale-up" referrerPolicy="no-referrer" />`;
                                                 document.body.appendChild(modal);
                                               }}
                                               className="relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-900 hover:border-[#dfac34]/40 transition-all cursor-zoom-in group"
                                             >
                                               <img 
-                                                src={photo} 
+                                                src={getOptimizedImageUrl(photo, 400)} 
                                                 alt={`Momento ${pIdx + 1}`} 
+                                                loading="lazy"
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                                 referrerPolicy="no-referrer"
                                               />
@@ -3124,7 +3141,7 @@ export default function App() {
                           {matchedEvent.report?.photos && matchedEvent.report.photos.length > 0 && (
                             <div className="space-y-3 pt-1.5 border-t border-slate-800/80 animate-fade-in">
                               <h5 className="text-[10px] font-mono font-bold text-[#dfac34] uppercase tracking-wider">Fotografias e Recordações</h5>
-                              <div className="grid grid-cols-2 gap-2">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 {matchedEvent.report.photos.map((photo, pIdx) => (
                                   <div 
                                     key={pIdx} 
@@ -3133,11 +3150,16 @@ export default function App() {
                                       const modal = document.createElement('div');
                                       modal.className = "fixed inset-0 bg-slate-950/95 flex items-center justify-center p-4 z-50 animate-fade-in";
                                       modal.onclick = () => document.body.removeChild(modal);
-                                      modal.innerHTML = `<img src="${photo}" class="max-h-[85vh] max-w-full rounded-2xl border border-slate-800 shadow-2xl object-cover animate-scale-up" referrerPolicy="no-referrer" />`;
+                                      modal.innerHTML = `<img src="${getOptimizedImageUrl(photo, 1200)}" class="max-h-[85vh] max-w-full rounded-2xl border border-slate-800 shadow-2xl object-cover animate-scale-up" referrerPolicy="no-referrer" />`;
                                       document.body.appendChild(modal);
                                     }}
                                   >
-                                    <img src={photo} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
+                                    <img 
+                                      src={getOptimizedImageUrl(photo, 400)} 
+                                      loading="lazy" 
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                      referrerPolicy="no-referrer" 
+                                    />
                                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/20 to-transparent flex items-end p-2 opacity-90">
                                       <span className="text-[9px] font-mono text-slate-300 group-hover:text-white transition-colors">Ampliar ⤢</span>
                                     </div>
@@ -3539,10 +3561,20 @@ export default function App() {
                   key={post.id}
                   className="glass-morphic bg-slate-900/30 border border-[#dfac34]/15 rounded-3xl overflow-hidden hover:border-[#dfac34]/35 hover:-translate-y-1 transition-all flex flex-col group justify-between shadow-xl"
                 >
-                  <div className="h-56 overflow-hidden relative">
+                  <div 
+                    onClick={() => {
+                      const modal = document.createElement('div');
+                      modal.className = "fixed inset-0 bg-slate-950/95 flex items-center justify-center p-4 z-50 animate-fade-in cursor-zoom-out";
+                      modal.onclick = () => document.body.removeChild(modal);
+                      modal.innerHTML = `<img src="${getOptimizedImageUrl(post.image_url, 1200)}" class="max-h-[85vh] max-w-full rounded-2xl border border-slate-800 shadow-2xl object-cover animate-scale-up" referrerPolicy="no-referrer" />`;
+                      document.body.appendChild(modal);
+                    }}
+                    className="h-56 overflow-hidden relative cursor-zoom-in group"
+                  >
                     <img 
-                      src={post.image_url} 
+                      src={getOptimizedImageUrl(post.image_url, 600)} 
                       alt={post.title}
+                      loading="lazy"
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       referrerPolicy="no-referrer"
                     />
@@ -3667,9 +3699,10 @@ export default function App() {
                 >
                   <div className="relative h-56 w-full overflow-hidden">
                     <img 
-                      src={exb.photos[0]} 
+                      src={getOptimizedImageUrl(exb.photos[0], 600)} 
                       alt={exb.title}
                       referrerPolicy="no-referrer"
+                      loading="lazy"
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
@@ -3783,9 +3816,10 @@ export default function App() {
                       <div className="relative shrink-0">
                         <div className="absolute inset-0 bg-[#dfac34]/5 rounded-2xl blur-sm scale-105 group-hover:bg-[#dfac34]/15 transition-all" />
                         <img 
-                          src={cont.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80'} 
+                          src={getOptimizedImageUrl(cont.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde', 150)} 
                           alt={cont.name}
                           referrerPolicy="no-referrer"
+                          loading="lazy"
                           className="w-16 h-16 rounded-2xl object-cover relative z-10 border border-slate-800 group-hover:border-[#dfac34]/40 transition-all duration-300"
                         />
                       </div>
@@ -4953,12 +4987,13 @@ export default function App() {
                       ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="pending-moderation-grid">
                           {adminGallery.filter(p => p.status === 'pending').map(post => (
-                            <div key={post.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-[#dfac34]/30 duration-300 flex flex-col justify-between">
+                            <div key={post.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-[#dfac34]/50 hover:scale-[1.02] hover:shadow-lg hover:shadow-amber-500/10 transition-all duration-300 flex flex-col justify-between pending-card-pulse">
                               <div className="relative h-44 bg-slate-950 overflow-hidden">
                                 <img
-                                  src={post.image_url}
+                                  src={getOptimizedImageUrl(post.image_url, 400)}
                                   alt={post.title}
                                   referrerPolicy="no-referrer"
+                                  loading="lazy"
                                   className="w-full h-full object-cover"
                                 />
                                 <span className="absolute top-2.5 left-2.5 bg-amber-500/90 text-slate-950 text-[9px] font-bold uppercase py-0.5 px-2 rounded-md font-mono">
@@ -5015,6 +5050,61 @@ export default function App() {
                       )}
                     </div>
 
+                    {/* Approval History section */}
+                    <div className="space-y-4 pt-4 border-t border-slate-800/60">
+                      <div className="border-l-4 border-[#dfac34] pl-3">
+                        <h5 className="text-xs uppercase tracking-wider font-extrabold text-[#dfac34] font-mono flex items-center gap-2">
+                          <History className="w-3.5 h-3.5" /> Histórico de Decisões Recentes / Approval History (Últimas 5)
+                        </h5>
+                        <p className="text-[10px] text-slate-400 mt-1">Veja as últimas ações de aprovação ou rejeição tomadas pela equipa.</p>
+                      </div>
+
+                      {adminGallery.filter(p => p.status === 'approved' || p.status === 'rejected').length === 0 ? (
+                        <p className="text-xs text-slate-500 italic pl-1">Não existem ações de moderação registadas recentemente.</p>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {[...adminGallery]
+                            .filter(p => p.status === 'approved' || p.status === 'rejected')
+                            .sort((a, b) => {
+                              const tA = a.moderated_at || a.created_at || '';
+                              const tB = b.moderated_at || b.created_at || '';
+                              return tB.localeCompare(tA);
+                            })
+                            .slice(0, 5)
+                            .map(post => (
+                              <div key={post.id} className="bg-slate-950/40 border border-slate-850 p-3.5 rounded-xl flex items-center gap-3 hover:border-slate-800 duration-200">
+                                <img
+                                  src={getOptimizedImageUrl(post.image_url, 100)}
+                                  alt={post.title}
+                                  referrerPolicy="no-referrer"
+                                  loading="lazy"
+                                  className="w-12 h-12 object-cover rounded-lg border border-slate-800 shrink-0"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <h6 className="font-bold text-slate-200 text-xs truncate" title={post.title}>{post.title}</h6>
+                                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                    {post.status === 'approved' ? (
+                                      <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20 rounded text-[8px] uppercase font-mono">
+                                        Aprovado
+                                      </span>
+                                    ) : (
+                                      <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-400 font-semibold border border-rose-500/20 rounded text-[8px] uppercase font-mono">
+                                        Rejeitado
+                                      </span>
+                                    )}
+                                    <span className="text-[9px] text-slate-500 font-mono">
+                                      {post.moderated_at 
+                                        ? new Date(post.moderated_at).toLocaleString('pt-PT') 
+                                        : new Date(post.created_at).toLocaleString('pt-PT')}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+
                     {/* Already Moderated section */}
                     <div className="space-y-4 pt-4">
                       <div className="border-l-4 border-slate-700 pl-3">
@@ -5043,9 +5133,10 @@ export default function App() {
                                   <tr key={post.id} className="hover:bg-slate-950/25">
                                     <td className="py-3 px-4">
                                       <img
-                                        src={post.image_url}
+                                        src={getOptimizedImageUrl(post.image_url, 150)}
                                         alt={post.title}
                                         referrerPolicy="no-referrer"
+                                        loading="lazy"
                                         className="w-16 h-12 object-cover rounded-md border border-slate-800 scale-up"
                                       />
                                     </td>
@@ -5307,9 +5398,10 @@ export default function App() {
                 {/* Primary display photo */}
                 <div className="relative h-44 sm:h-52 rounded-2xl overflow-hidden border border-slate-800">
                   <img 
-                    src={selectedExhibition.photos[activeExbPhotoIdx]} 
+                    src={getOptimizedImageUrl(selectedExhibition.photos[activeExbPhotoIdx], 850)} 
                     alt="Galeria de Exposições"
                     referrerPolicy="no-referrer"
+                    loading="lazy"
                     className="w-full h-full object-cover transition-all duration-300"
                   />
                 </div>
@@ -5325,9 +5417,10 @@ export default function App() {
                       }`}
                     >
                       <img 
-                        src={photo} 
+                        src={getOptimizedImageUrl(photo, 150)} 
                         alt={`Thumbnail ${idx + 1}`}
                         referrerPolicy="no-referrer"
+                        loading="lazy"
                         className="w-full h-full object-cover"
                       />
                     </button>

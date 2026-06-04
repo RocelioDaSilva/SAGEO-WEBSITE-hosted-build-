@@ -60,6 +60,7 @@ export interface GalleryPost {
   created_at: string;
   likes?: number;
   status?: 'pending' | 'approved' | 'rejected';
+  moderated_at?: string;
 }
 
 export interface Contributor {

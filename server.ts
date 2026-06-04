@@ -1295,6 +1295,7 @@ async function startServer() {
     }
     
     post.status = 'approved';
+    post.moderated_at = new Date().toISOString();
     
     db.auditLogs.push({
       id: `aud-${Date.now()}`,
@@ -1318,6 +1319,7 @@ async function startServer() {
     
     const post = db.gallery[postIndex];
     post.status = 'rejected';
+    post.moderated_at = new Date().toISOString();
     
     db.auditLogs.push({
       id: `aud-${Date.now()}`,
