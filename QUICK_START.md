@@ -41,7 +41,7 @@ Siga este guião para entender como a SAGEO monitoriza as presenças físicas do
    - Ao clicares no link de confirmação do correio, o sistema valida o token e o teu **Bilhete de Entrada SAGEO** é aberto na Homepage com um **QR Code único**.
 
 4. **Entrada e Portaria do Evento (Painel Admin)**:
-   - Vai ao menu **Painel Admin** no cabeçalho e insere o código administrativo definido no teu ficheiro de ambiente (`ADMIN_PASSCODES` no `.env`).
+   - Vai ao menu **Painel Admin** no cabeçalho e insere o código do Secretariado: **`SAGEO2026`**.
    - Clica no separador **Leitor QR (Check-In)**.
    - Vê o simulador integrado de câmara móvel. Clica no QR Code gerado anteriormente para simular o scan da portaria física.
    - O ecrã pedirá a resposta oral da pergunta do participante. Insere a resposta exata (*"Rex"*) e clica em **Validar Resposta**.

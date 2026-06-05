@@ -1,5 +1,8 @@
-
 node_modules/
+build/
 dist/
-*.json   # only if you don't want any json files committed.env
-.env
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example

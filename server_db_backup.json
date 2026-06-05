@@ -403,21 +403,6 @@
       "lecturer": "Comissão Executiva SAGEO & Tunas Universitárias do ISPTEC",
       "image_url": "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=800&q=80",
       "course": "Ambos"
-    },
-    {
-      "id": "evt-1780581995363",
-      "title": "Teste",
-      "description": "",
-      "date": "2026-06-10",
-      "start_time": "10:00",
-      "end_time": "",
-      "location": "Anfiteatro",
-      "capacity": 45,
-      "category": "integracao",
-      "is_open": true,
-      "is_completed": false,
-      "lecturer": "",
-      "course": "Ambos"
     }
   ],
   "registrations": [
@@ -497,9 +482,7 @@
       "title": "Auditório Nobre Completamente Esgotado",
       "description": "O arranque da SAGEO 2026 superou todas as expectativas com estudantes, empresas e investigadores reunidos num debate único sobre o futuro laboral e a transição energética nacional em Luanda.",
       "image_url": "https://images.unsplash.com/photo-1515187029135-18ee286d815b?auto=format&fit=crop&w=800&q=80",
-      "created_at": "2026-11-23T12:00:00Z",
-      "status": "approved",
-      "moderated_at": "2026-06-04T13:05:58.700Z"
+      "created_at": "2026-11-23T12:00:00Z"
     },
     {
       "id": "gal-2",
@@ -508,9 +491,7 @@
       "title": "Demonstração de Braço Robótico & Sensores",
       "description": "Estudantes do núcleo técnico demonstram em primeira mão a integração de braços robóticos e modelação computacional sísmica sob análise de júri corporativo.",
       "image_url": "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=800&q=80",
-      "created_at": "2026-11-25T14:30:00Z",
-      "status": "rejected",
-      "moderated_at": "2026-06-04T13:06:15.804Z"
+      "created_at": "2026-11-25T14:30:00Z"
     }
   ],
   "auditLogs": [
@@ -607,105 +588,6 @@
       "action": "EMAIL_REAL_SENT",
       "details": "Disparado e-mail real via SMTP para 20220001@isptec.co.ao com anexo certificado. MsgId: <59eeda01-94aa-8d2a-af7e-bcee4b441843@gmail.com>",
       "status": "success"
-    },
-    {
-      "id": "aud-1780578193210-q3tm",
-      "timestamp": "2026-06-04T13:03:13.210Z",
-      "action": "EMAIL_SIMULATED",
-      "details": "Disparado e-mail simulador para 20220001@isptec.co.ao (Atividade: \"Teste\") (Chave real ausente/placeholder)",
-      "status": "success"
-    },
-    {
-      "id": "aud-1780578193265-b9e1",
-      "timestamp": "2026-06-04T13:03:13.265Z",
-      "action": "EMAIL_SIMULATED",
-      "details": "Disparado e-mail simulador para 20220001@isptec.co.ao (Atividade: \"Teste\") (Chave real ausente/placeholder)",
-      "status": "success"
-    },
-    {
-      "id": "aud-1780578193284-e0vu",
-      "timestamp": "2026-06-04T13:03:13.284Z",
-      "action": "EMAIL_SIMULATED",
-      "details": "Disparado e-mail simulador para 20220001@isptec.co.ao (Atividade: \"Teste\") (Chave real ausente/placeholder)",
-      "status": "success"
-    },
-    {
-      "id": "aud-1780578193320-0s32",
-      "timestamp": "2026-06-04T13:03:13.320Z",
-      "action": "EMAIL_SIMULATED",
-      "details": "Disparado e-mail simulador para 20220001@isptec.co.ao (Atividade: \"Teste\") (Chave real ausente/placeholder)",
-      "status": "success"
-    },
-    {
-      "id": "aud-1780578193346-sc2q",
-      "timestamp": "2026-06-04T13:03:13.346Z",
-      "action": "EMAIL_SIMULATED",
-      "details": "Disparado e-mail simulador para 20220001@isptec.co.ao (Atividade: \"Teste\") (Chave real ausente/placeholder)",
-      "status": "success"
-    },
-    {
-      "id": "aud-1780578193370-er8o",
-      "timestamp": "2026-06-04T13:03:13.370Z",
-      "action": "EMAIL_SIMULATED",
-      "details": "Disparado e-mail simulador para 20220001@isptec.co.ao (Atividade: \"Teste\") (Chave real ausente/placeholder)",
-      "status": "success"
-    },
-    {
-      "id": "aud-1780578193396-1pq5",
-      "timestamp": "2026-06-04T13:03:13.396Z",
-      "action": "EMAIL_SIMULATED",
-      "details": "Disparado e-mail simulador para 20220001@isptec.co.ao (Atividade: \"Teste\") (Chave real ausente/placeholder)",
-      "status": "success"
-    },
-    {
-      "id": "aud-1780578193416-clva",
-      "timestamp": "2026-06-04T13:03:13.416Z",
-      "action": "EMAIL_SIMULATED",
-      "details": "Disparado e-mail simulador para 20220001@isptec.co.ao (Atividade: \"Teste\") (Chave real ausente/placeholder)",
-      "status": "success"
-    },
-    {
-      "id": "aud-1780578193440-v7m6",
-      "timestamp": "2026-06-04T13:03:13.440Z",
-      "action": "EMAIL_SIMULATED",
-      "details": "Disparado e-mail simulador para 20220001@isptec.co.ao (Atividade: \"Teste\") (Chave real ausente/placeholder)",
-      "status": "success"
-    },
-    {
-      "id": "aud-1780578193481-snho",
-      "timestamp": "2026-06-04T13:03:13.481Z",
-      "action": "EMAIL_SIMULATED",
-      "details": "Disparado e-mail simulador para 20220001@isptec.co.ao (Atividade: \"Teste\") (Chave real ausente/placeholder)",
-      "status": "success"
-    },
-    {
-      "id": "aud-1780578358700",
-      "timestamp": "2026-06-04T13:05:58.700Z",
-      "action": "GALLERY_APPROVE",
-      "details": "Registo fotográfico aprovado pelo administrador: \"Auditório Nobre Completamente Esgotado\"",
-      "status": "success"
-    },
-    {
-      "id": "aud-1780578375804",
-      "timestamp": "2026-06-04T13:06:15.804Z",
-      "action": "GALLERY_REJECT",
-      "details": "Registo fotográfico rejeitado/arquivado pelo administrador: \"Demonstração de Braço Robótico & Sensores\"",
-      "status": "info"
-    },
-    {
-      "id": "aud-1780579980100-72k4",
-      "timestamp": "2026-06-04T13:33:00.100Z",
-      "action": "EMAIL_SIMULATED",
-      "details": "Disparado e-mail simulador para 20220001@isptec.co.ao (Atividade: \"C-01: Cerimónia Oficial de Abertura SAGEO 2026\") (Chave real ausente/placeholder)",
-      "status": "success"
-    },
-    {
-      "id": "aud-1780581995363",
-      "timestamp": "2026-06-04T14:06:35.363Z",
-      "action": "EVENT_CREATE",
-      "details": "Nova atividade adicionada: \"Teste\" (ID: evt-1780581995363)",
-      "status": "success",
-      "eventId": "evt-1780581995363"
     }
   ]
 }
