@@ -403,6 +403,21 @@
       "lecturer": "Comissão Executiva SAGEO & Tunas Universitárias do ISPTEC",
       "image_url": "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=800&q=80",
       "course": "Ambos"
+    },
+    {
+      "id": "evt-1780581995363",
+      "title": "Teste",
+      "description": "",
+      "date": "2026-06-10",
+      "start_time": "10:00",
+      "end_time": "",
+      "location": "Anfiteatro",
+      "capacity": 45,
+      "category": "integracao",
+      "is_open": true,
+      "is_completed": false,
+      "lecturer": "",
+      "course": "Ambos"
     }
   ],
   "registrations": [
@@ -683,6 +698,14 @@
       "action": "EMAIL_SIMULATED",
       "details": "Disparado e-mail simulador para 20220001@isptec.co.ao (Atividade: \"C-01: Cerimónia Oficial de Abertura SAGEO 2026\") (Chave real ausente/placeholder)",
       "status": "success"
+    },
+    {
+      "id": "aud-1780581995363",
+      "timestamp": "2026-06-04T14:06:35.363Z",
+      "action": "EVENT_CREATE",
+      "details": "Nova atividade adicionada: \"Teste\" (ID: evt-1780581995363)",
+      "status": "success",
+      "eventId": "evt-1780581995363"
     }
   ]
 }
