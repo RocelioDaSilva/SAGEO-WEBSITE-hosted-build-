@@ -2,3 +2,4 @@
 node_modules/
 dist/
 *.json   # only if you don't want any json files committed.env
+.env
