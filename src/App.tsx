@@ -39,7 +39,10 @@ import {
   KeyRound,
   BarChart3,
   Camera,
-  History
+  History,
+  Database,
+  RefreshCw,
+  Server
 } from 'lucide-react';
 
 import { Event, Registration, GalleryPost, WaitlistEntry, Contributor, Exhibition, BrainstormingIdea, ThematicAxis } from './types';
@@ -4419,6 +4422,152 @@ export default function App() {
                           </tbody>
                         </table>
                       </div>
+                    </div>
+
+                    {/* Supabase Real-Time Cloud Sync Diagnostic Panel */}
+                    <div className="glass-morphic bg-slate-900/40 border border-[#dfac34]/15 rounded-3xl p-6 mt-6 shadow-xl">
+                      <div className="flex justify-between items-center mb-4 border-b border-slate-800/60 pb-3">
+                        <div className="flex items-center gap-2.5">
+                          <Database className="w-5 h-5 text-[#dfac34]" />
+                          <div>
+                            <h4 className="text-md font-serif font-black text-slate-100 tracking-tight">
+                              Sincronização Cloud Supabase
+                            </h4>
+                            <p className="text-[10px] text-slate-400 mt-0.5">Diagnóstico ativo da ponte de dados Multi-Máquinas SAGEO 2026</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => syncBackendData()} 
+                          disabled={isSyncing}
+                          className="flex items-center gap-1.5 px-3 py-1 bg-[#dfac34]/10 hover:bg-[#dfac34]/20 disabled:bg-slate-900 text-[#dfac34] disabled:text-slate-500 font-mono text-[10px] font-bold border border-[#dfac34]/20 disabled:border-slate-800 rounded-lg transition-all duration-200"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+                          FORÇAR SYNC
+                        </button>
+                      </div>
+
+                      {/* Diagnostic details */}
+                      {!dashboardStats || !dashboardStats.supabaseStatus ? (
+                        <div className="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-4 text-center">
+                          <p className="text-xs text-slate-400">
+                            A carregar telemetria de sincronização remota do servidor local...
+                          </p>
+                        </div>
+                      ) : (
+                        (() => {
+                          const status = dashboardStats.supabaseStatus;
+                          const hasErrors = status.errors && status.errors.length > 0;
+                          const isFullyConnected = status.initialized && status.syncActive && !hasErrors;
+
+                          return (
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                              {/* Status Widget */}
+                              <div className="space-y-4 col-span-1 border-r border-slate-800/50 pr-0 lg:pr-6">
+                                <div className="space-y-2">
+                                  <span className="text-[9px] font-mono font-bold tracking-wider text-slate-500 uppercase block">Estado de Conetividade</span>
+                                  <div className="flex items-center gap-2.5">
+                                    <span className={`h-3 w-3 rounded-full ${isFullyConnected ? 'bg-amber-500 animate-pulse' : hasErrors ? 'bg-rose-500 animate-pulse' : 'bg-slate-500'}`} />
+                                    <span className="text-sm font-bold font-mono text-white">
+                                      {isFullyConnected 
+                                        ? "CONECTADO & ATIVO" 
+                                        : !status.initialized 
+                                          ? "NÃO INICIALIZADO (OFFLINE)" 
+                                          : hasErrors 
+                                            ? "ERRO DE CONEXÃO / TABELA" 
+                                            : "INICIALIZADO (AGUARDANDO)"}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-1.5 text-xs text-slate-300 font-mono">
+                                  <div className="flex justify-between py-1 border-b border-slate-800/30">
+                                    <span className="text-slate-500">Credenciais URL:</span>
+                                    <span className={status.urlExists ? "text-[#dfac34]" : "text-rose-405"}>
+                                      {status.urlExists ? "DECLARADA (OK)" : "NÃO ENCONTRADA"}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between py-1 border-b border-slate-800/30">
+                                    <span className="text-slate-500">Chave Supabase:</span>
+                                    <span className={status.keyExists ? "text-[#dfac34]" : "text-rose-405"}>
+                                      {status.keyExists ? "DECLARADA (OK)" : "NÃO ENCONTRADA"}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between py-1">
+                                    <span className="text-slate-500">Último Sync:</span>
+                                    <span className="text-slate-200">
+                                      {status.lastSyncTime ? new Date(status.lastSyncTime).toLocaleTimeString('pt-PT') : "NUNCA SE APARTOU"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Errors and suggestions */}
+                              <div className="space-y-3 col-span-1 lg:col-span-2">
+                                <span className="text-[9px] font-mono font-bold tracking-wider text-slate-500 uppercase block">
+                                  Canal de Depuração & Sugestões de Resolução
+                                </span>
+
+                                {!status.urlExists || !status.keyExists ? (
+                                  <div className="bg-rose-950/20 border border-rose-500/20 rounded-xl p-3.5 space-y-2">
+                                    <div className="flex items-start gap-2 text-rose-450">
+                                      <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                                      <p className="text-xs font-bold font-serif leading-tight">Faltam Configurar os Secrets no AI Studio</p>
+                                    </div>
+                                    <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+                                      Abra o menu de definições (**Settings**) na barra superior e introduza as variáveis **SUPABASE_URL** e **SUPABASE_ANON_KEY** (ou use a chave *service_role* se os bloqueios RLS persistirem no envio de dados).
+                                    </p>
+                                  </div>
+                                ) : hasErrors ? (
+                                  <div className="space-y-2">
+                                    <div className="bg-rose-950/20 border border-rose-500/20 rounded-xl p-3.5">
+                                      <div className="flex items-start gap-2 text-rose-450 mb-2">
+                                        <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                                        <p className="text-xs font-bold font-serif leading-tight">Erro detetado no Supabase:</p>
+                                      </div>
+                                      <div className="space-y-1 font-mono text-[10px] text-rose-350 max-h-[80px] overflow-y-auto bg-black/30 p-2 rounded border border-rose-950">
+                                        {status.errors.map((err: string, idx: number) => (
+                                          <div key={idx} className="flex gap-1">
+                                            <span>•</span>
+                                            <span>{err}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    {/* Smart Suggestions based on common error text */}
+                                    <div className="bg-[#dfac34]/5 border border-[#dfac34]/15 rounded-xl p-3 font-sans text-[11px] text-slate-305 leading-relaxed space-y-1.5">
+                                      <p className="font-bold font-serif text-[#dfac34]">💡 Como Resolver:</p>
+                                      {status.errors.some((e: string) => e.includes("violates row-level security") || e.includes("403") || e.includes("permission denied") || e.includes("new row violation")) ? (
+                                        <p>
+                                          **Problema de RLS (Segurança)**: O Supabase está a bloquear escritas feitas com a chave anónima. <strong className="text-[#dfac34]">Opção recomendada:</strong> defina a variável de ambiente **SUPABASE_ANON_KEY** no AI Studio usando a chave <code className="bg-black/50 px-1 py-0.5 rounded font-mono text-[10px]">service_role</code> do Supabase. Isto ultrapassa de forma segura o RLS, visto que o nosso servidor Express e a nossa sincronização correm em ambiente privado seguro. <strong className="text-[#dfac34]">Opção de desenvolvimento:</strong> Corra o comando <code className="bg-black/50 px-1 py-0.5 rounded font-mono text-[10px]">ALTER TABLE ... DISABLE ROW LEVEL SECURITY;</code> no SQL Editor do Supabase para desativar a proteção RLS.
+                                        </p>
+                                      ) : status.errors.some((e: string) => e.includes("does not exist") || e.includes("relation") || e.includes("404")) ? (
+                                        <p>
+                                          **Tabelas em falta**: As tabelas não existem na base de dados do projeto Supabase. Copie o código SQL integral do ficheiro <strong className="text-[#dfac34]">DATABASE_SCHEMA.sql</strong>, cole-o no **SQL Editor** do Supabase e clique em **RUN** para recriar todas as tabelas corretamente.
+                                        </p>
+                                      ) : (
+                                        <p>
+                                          Confirme que o esquema SQL está atualizado e sem conflitos de tipo UUID. Se modificou as tabelas no Supabase diretamente, certifique-se de que as IDs são de tipo **TEXT** (visto que a app envia strings, não formatos nativos UUID).
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="bg-[#dfac34]/5 border border-[#dfac34]/15 rounded-2xl p-4 flex gap-3.5 items-start">
+                                    <CheckCircle2 className="w-5 h-5 text-[#dfac34] shrink-0 mt-0.5" />
+                                    <div>
+                                      <p className="text-xs font-bold text-white font-serif tracking-tight">Ponte de Sincronização Ativa & Saudável!</p>
+                                      <p className="text-[11px] text-slate-400 leading-relaxed mt-1 font-sans">
+                                        Todos os eventos, inscrições, vagas na lista de espera e posts de galeria guardados no servidor local estão em perfeita união síncrona bidirecional com a sua base de dados do Supabase.
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()
+                      )}
                     </div>
 
                     {/* Live System Audit and Scans Logs */}

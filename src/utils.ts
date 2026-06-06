@@ -598,6 +598,14 @@ export const fetchDashboardStats = async (): Promise<{
   waitlistCount: number;
   occupancy: Array<{ eventId: string; title: string; capacity: number; booked: number; percent: number }>;
   recentLogs: Array<{ id: string; timestamp: string; action: string; details: string; status: string }>;
+  supabaseStatus?: {
+    initialized: boolean;
+    urlExists: boolean;
+    keyExists: boolean;
+    syncActive: boolean;
+    lastSyncTime: string;
+    errors: string[];
+  };
 }> => {
   try {
     const passcode = localStorage.getItem("sageo_temp_passcode") || "";

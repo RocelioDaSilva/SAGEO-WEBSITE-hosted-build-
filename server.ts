@@ -14,12 +14,24 @@ const supabaseUrl = process.env.SUPABASE_URL || "";
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 let supabase: any = null;
+const supabaseStatus = {
+  initialized: false,
+  urlExists: !!supabaseUrl,
+  keyExists: !!supabaseAnonKey,
+  syncActive: false,
+  lastSyncTime: "",
+  errors: [] as string[]
+};
+
 if (supabaseUrl && supabaseAnonKey) {
   try {
     supabase = createClient(supabaseUrl, supabaseAnonKey);
     console.log("🟢 [Supabase] Cliente inicializado com sucesso para sincronização nas nuvens!");
-  } catch (err) {
+    supabaseStatus.initialized = true;
+    supabaseStatus.syncActive = true;
+  } catch (err: any) {
     console.error("🔴 [Supabase] Falha ao inicializar o cliente Supabase:", err);
+    supabaseStatus.errors.push(`Erro na inicialização: ${err.message || err}`);
   }
 }
 
@@ -164,6 +176,7 @@ function writeDB(data: DBData) {
 // Push local data models into Supabase PostgreSQL tables (inserting/updating dynamically)
 async function pushToSupabase(data: DBData) {
   if (!supabase) return;
+  const currentErrors: string[] = [];
   try {
     console.log("📤 [Supabase Sync] A sincronizar alterações locais com a nuvem Supabase...");
 
@@ -192,6 +205,7 @@ async function pushToSupabase(data: DBData) {
           console.warn("⚠️ [Supabase Sync] Tipo UUID incompatível nos eventos. Execute a script de migração SAGEO para Tipo TEXT nas IDs.");
         } else {
           console.error("❌ [Supabase Sync] Erro nos eventos:", error.message);
+          currentErrors.push(`Eventos: ${error.message} (Código: ${error.code || ''})`);
         }
       }
     }
@@ -223,6 +237,7 @@ async function pushToSupabase(data: DBData) {
           console.warn("⚠️ [Supabase Sync] Tipo UUID incompatível nas inscrições.");
         } else {
           console.error("❌ [Supabase Sync] Erro nas inscrições:", error.message);
+          currentErrors.push(`Inscrições: ${error.message} (Código: ${error.code || ''})`);
         }
       }
     }
@@ -237,7 +252,10 @@ async function pushToSupabase(data: DBData) {
         created_at: w.created_at
       }));
       const { error } = await supabase.from("waitlist").upsert(rows, { onConflict: "id" });
-      if (error) console.error("❌ [Supabase Sync] Erro na lista de espera:", error.message);
+      if (error) {
+        console.error("❌ [Supabase Sync] Erro na lista de espera:", error.message);
+        currentErrors.push(`Waitlist: ${error.message} (Código: ${error.code || ''})`);
+      }
     }
 
     // 4. Sync Gallery
@@ -267,16 +285,37 @@ async function pushToSupabase(data: DBData) {
             image_url: r.image_url,
             created_at: r.created_at
           }));
-          await supabase.from("gallery_posts").upsert(simpleRows, { onConflict: "id" });
+          const { error: fallbackError } = await supabase.from("gallery_posts").upsert(simpleRows, { onConflict: "id" });
+          if (fallbackError) {
+            console.error("❌ [Supabase Sync] Erro na galeria (fallback):", fallbackError.message);
+            currentErrors.push(`Galeria: ${fallbackError.message} (Código: ${fallbackError.code || ''})`);
+          }
         } else {
           console.error("❌ [Supabase Sync] Erro na galeria:", error.message);
+          currentErrors.push(`Galeria: ${error.message} (Código: ${error.code || ''})`);
         }
       }
     }
 
-    console.log("✅ [Supabase Sync] Sincronização concluída com o Supabase!");
+    // Merge errors
+    supabaseStatus.errors = supabaseStatus.errors
+      .filter(e => !e.startsWith("Eventos:") && !e.startsWith("Inscrições:") && !e.startsWith("Waitlist:") && !e.startsWith("Galeria:"))
+      .concat(currentErrors);
+
+    if (currentErrors.length === 0) {
+      console.log("✅ [Supabase Sync] Sincronização concluída com o Supabase!");
+      supabaseStatus.syncActive = true;
+      supabaseStatus.lastSyncTime = new Date().toISOString();
+    } else {
+      supabaseStatus.syncActive = false;
+    }
   } catch (err: any) {
     console.error("⚠️ [Supabase Sync] Erro no envio de dados locais:", err.message || err);
+    const mainErr = `Erro geral push: ${err.message || err}`;
+    if (!supabaseStatus.errors.includes(mainErr)) {
+      supabaseStatus.errors.push(mainErr);
+    }
+    supabaseStatus.syncActive = false;
   }
 }
 
@@ -290,9 +329,23 @@ async function syncWithSupabase(onSync?: (newData: DBData) => void) {
     const { data: remoteGallery, error: errGallery } = await supabase.from("gallery_posts").select("*");
 
     if (errEvents || errRegs || errWaitlist || errGallery) {
-      console.warn("⚠️ [Supabase Sync] Não foi possível obter algumas tabelas do Supabase (ignorado no arranque / modo offline).");
+      const remoteErrors: string[] = [];
+      if (errEvents) remoteErrors.push(`Obter Eventos: ${errEvents.message}`);
+      if (errRegs) remoteErrors.push(`Obter Inscrições: ${errRegs.message}`);
+      if (errWaitlist) remoteErrors.push(`Obter Waitlist: ${errWaitlist.message}`);
+      if (errGallery) remoteErrors.push(`Obter Galeria: ${errGallery.message}`);
+
+      console.warn("⚠️ [Supabase Sync] Não foi possível obter algumas tabelas do Supabase:", remoteErrors);
+      
+      supabaseStatus.errors = supabaseStatus.errors
+        .filter(e => !e.startsWith("Obter "))
+        .concat(remoteErrors);
+      supabaseStatus.syncActive = false;
       return;
     }
+
+    // Reset old fetch errors on success
+    supabaseStatus.errors = supabaseStatus.errors.filter(e => !e.startsWith("Obter "));
 
     let updated = false;
     let localDB = loadDB();
@@ -573,7 +626,8 @@ async function startServer() {
       pendingCount: pendingCheckin,
       waitlistCount: waitlist.length,
       occupancy: occupancyMap,
-      recentLogs: safeLogs
+      recentLogs: safeLogs,
+      supabaseStatus: supabaseStatus
     });
   });
 

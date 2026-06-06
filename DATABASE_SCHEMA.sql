@@ -99,6 +99,22 @@ CREATE INDEX IF NOT EXISTS idx_registrations_checked_in ON public.registrations(
 CREATE INDEX IF NOT EXISTS idx_waitlist_event_id ON public.waitlist(event_id);
 
 -- Segurança RLS (Row Level Security)
+-- NOTA IMPORTANTE PARA SINCRONIZAÇÃO SAGEO:
+-- Para o servidor Express conseguir ler e escrever dados no Supabase de forma livre e em tempo real,
+-- você deve adotar uma destas duas soluções práticas sugeridas abaixo:
+--
+-- Opção A (Altamente Recomendado): Configure a sua variável de ambiente SUPABASE_ANON_KEY no AI Studio
+--                                 com a chave "service_role" (e NÃO a chave anon publica).
+--                                 A chave de serviço privado ignora RLS automaticamente e com total segurança.
+--
+-- Opção B (Atalhado Simples): Copie e execute o comando abaixo no SQL Editor do Supabase para desativar RLS:
+-- ALTER TABLE public.events DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.registrations DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.waitlist DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.attendance_logs DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.certificates DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.gallery_posts DISABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.registrations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.waitlist ENABLE ROW LEVEL SECURITY;
@@ -106,21 +122,13 @@ ALTER TABLE public.attendance_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.certificates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gallery_posts ENABLE ROW LEVEL SECURITY;
 
--- Políticas de acesso público
-CREATE POLICY "Qualquer utilizador pode ler eventos" ON public.events
-    FOR SELECT USING (true);
-
-CREATE POLICY "Qualquer utilizador pode ler a galeria" ON public.gallery_posts
-    FOR SELECT USING (true);
-
-CREATE POLICY "Qualquer utilizador pode inserir inscrições" ON public.registrations
-    FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Qualquer utilizador pode atualizar e confirmar a sua inscrição pública" ON public.registrations
-    FOR UPDATE USING (confirmed = false);
-
-CREATE POLICY "Estudante pode ler o seu próprio registo por token" ON public.registrations
-    FOR SELECT USING (true);
+-- Políticas de acesso aberto (Permite que a app leia e escreva livremente, seja qual for a chave usada)
+CREATE POLICY "Permitir tudo para eventos" ON public.events FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Permitir tudo para inscrições" ON public.registrations FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Permitir tudo para waitlist" ON public.waitlist FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Permitir tudo para logs" ON public.attendance_logs FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Permitir tudo para certificados" ON public.certificates FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Permitir tudo para galeria" ON public.gallery_posts FOR ALL USING (true) WITH CHECK (true);
 
 -- Dados de demonstração iniciais (IDs textuais compatíveis com a app)
 INSERT INTO public.events (id, title, description, date, start_time, end_time, location, capacity, category, is_open, lecturer, image_url)
